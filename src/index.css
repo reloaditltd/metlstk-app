@@ -128,7 +128,7 @@ main h2 { font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem; color: v
 .search-bar input::placeholder { color: var(--text-muted); }
 
 /* ── Table ── */
-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
 thead { position: sticky; top: 54px; z-index: 1; }
 th {
   background: var(--bg); text-align: left;
