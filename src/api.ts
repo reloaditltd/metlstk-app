@@ -267,6 +267,10 @@ export const api = {
       get<{ grn_no: string; supplier_account: string | null; stock_account_code: string | null; quantity: number | null; unit: string | null; cert_ref: string | null; heat_no: string | null; spec: string | null; grade: string | null; price_gbp: number | null; price_basis: string | null; warehouse: string | null; confirmed_at: string | null; created_at: string; cert_count: number; conformance_pass: boolean | null }[]>(
         `${v1(co)}/grn`
       ),
+    get: (co: string, grnNo: string) =>
+      get<{ grn_no: string; supplier_account: string | null; purchase_order_no: string | null; delivery_note_ref: string | null; stock_account_code: string | null; quantity: number | null; unit: string | null; length_mm: number | null; cert_ref: string | null; heat_no: string | null; spec: string | null; grade: string | null; cert_standard: string | null; price_gbp: number | null; price_basis: string | null; alloy_surcharge_pence: number | null; warehouse: string | null; chemistry: Record<string,number> | null; mechanical: Record<string,number> | null; conformance: ConformanceRow[] | null; cert_paths: string[] | null; confirmed_at: string | null; created_at: string }>(
+        `${v1(co)}/grn/${encodeURIComponent(grnNo)}`
+      ),
     certs: (co: string, grnNo: string) =>
       get<{ path: string; url: string }[]>(`${v1(co)}/grn/${encodeURIComponent(grnNo)}/certs`),
   },

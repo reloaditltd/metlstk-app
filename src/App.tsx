@@ -6,7 +6,7 @@ import {
   InvoiceList, InvoiceDetail,
   StockList, StockDetail,
   DispatchView,
-  GRNList, GRNNew,
+  GRNList, GRNNew, GRNDetail,
   StockBatchList,
 } from "./views"
 import { useSession, LoginPage } from "./auth"
@@ -116,6 +116,7 @@ export default function App() {
         {module === "stock"           &&  id && <StockDetail       company={company} id={id} />}
         {module === "grn"             && !id && <GRNList           company={company} />}
         {module === "grn"             &&  id === "new" && <GRNNew  company={company} />}
+        {module === "grn"             &&  id && id !== "new" && <GRNDetail company={company} id={id} />}
         {module === "batches"         && !id && <StockBatchList    company={company} />}
         {!module && <p className="state-msg">Choose a module from the navigation above.</p>}
       </main>

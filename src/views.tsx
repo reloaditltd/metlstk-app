@@ -716,14 +716,6 @@ export function GRNList({ company }: { company: string }) {
     api.grn.list(company).then(setRows).catch(console.error).finally(() => setLoading(false))
   }, [company])
 
-  async function viewCerts(grnNo: string) {
-    try {
-      const certs = await api.grn.certs(company, grnNo)
-      if (!certs.length) return
-      certs.forEach(c => window.open(c.url, "_blank", "noopener"))
-    } catch (e) { console.error(e) }
-  }
-
   return (
     <Shell loading={loading} error={null}>
       <div style={{ marginBottom: "1rem" }}>
@@ -732,12 +724,13 @@ export function GRNList({ company }: { company: string }) {
       <table>
         <thead><tr>
           <th>GRN No</th><th>Stock Code</th><th>Heat No</th><th>Spec</th><th>Grade</th>
-          <th>Qty</th><th>Price</th><th>Warehouse</th><th>Created</th><th>Spec</th><th>Certs</th>
+          <th>Qty</th><th>Price</th><th>Warehouse</th><th>Created</th><th>Conform</th>
         </tr></thead>
         <tbody>
           {rows.map(r => (
-            <tr key={r.grn_no}>
-              <td><strong>{r.grn_no}</strong></td>
+            <tr key={r.grn_no} style={{ cursor: "pointer" }}
+              onClick={() => location.hash = `#/${company}/grn/${encodeURIComponent(r.grn_no)}`}>
+              <td><strong style={{ color: "var(--brand)" }}>{r.grn_no}</strong></td>
               <td>{r.stock_account_code}</td>
               <td>{r.heat_no}</td>
               <td>{r.spec}</td>
@@ -750,14 +743,116 @@ export function GRNList({ company }: { company: string }) {
                 ? <span className="badge badge--pass">PASS</span>
                 : r.conformance_pass === false
                 ? <span className="badge badge--fail">FAIL</span>
-                : ""}</td>
-              <td>{r.cert_count > 0
-                ? <button className="action-btn" onClick={() => viewCerts(r.grn_no)}>View ({r.cert_count})</button>
-                : ""}</td>
+                : "—"}</td>
             </tr>
           ))}
         </tbody>
       </table>
+    </Shell>
+  )
+}
+
+// ── GRN detail ────────────────────────────────────────────────────────────────
+const CHEM_KEYS_D = ["C","Si","Mn","P","S","Cr","Ni","Mo","V","Cu","Al","Ti","Nb","N","B","Co"]
+const MECH_KEYS_D = ["tensile_mpa","proof_02_mpa","proof_1_mpa","elongation_pct","reduction_pct","hardness"]
+
+export function GRNDetail({ company, id }: { company: string; id: string }) {
+  const { data: grn, loading, error } = useData(() => api.grn.get(company, id), [company, id])
+
+  async function viewCerts() {
+    try {
+      const certs = await api.grn.certs(company, id)
+      certs.forEach(c => window.open(c.url, "_blank", "noopener"))
+    } catch (e) { console.error(e) }
+  }
+
+  return (
+    <Shell loading={loading} error={error}>
+      <a className="back-link" href={`#/${company}/grn`}>← Back to GRNs</a>
+      {grn && (
+        <div className="grn-shell">
+          <div className="detail-grid">
+            <div className="detail-card">
+              <h3>Receipt</h3>
+              <dl>
+                <dt>Supplier</dt><dd>{grn.supplier_account || "—"}</dd>
+                <dt>PO No</dt><dd>{grn.purchase_order_no || "—"}</dd>
+                <dt>Delivery Note</dt><dd>{grn.delivery_note_ref || "—"}</dd>
+                <dt>Stock Code</dt><dd>{grn.stock_account_code || "—"}</dd>
+                <dt>Quantity</dt><dd>{grn.quantity != null ? `${grn.quantity} ${grn.unit ?? ""}` : "—"}</dd>
+                <dt>Length</dt><dd>{grn.length_mm != null ? `${grn.length_mm} mm` : "—"}</dd>
+                <dt>Warehouse</dt><dd>{grn.warehouse || "—"}</dd>
+              </dl>
+            </div>
+            <div className="detail-card">
+              <h3>Material / Cert</h3>
+              <dl>
+                <dt>Heat No</dt><dd>{grn.heat_no || "—"}</dd>
+                <dt>Cert Ref</dt><dd>{grn.cert_ref || "—"}</dd>
+                <dt>Spec</dt><dd>{grn.spec || "—"}</dd>
+                <dt>Grade</dt><dd>{grn.grade || "—"}</dd>
+                <dt>Cert Standard</dt><dd>{grn.cert_standard || "—"}</dd>
+              </dl>
+            </div>
+            <div className="detail-card">
+              <h3>Pricing</h3>
+              <dl>
+                <dt>Price</dt><dd>{grn.price_gbp != null ? `£${grn.price_gbp} / ${grn.price_basis}` : "—"}</dd>
+                <dt>Alloy surcharge</dt><dd>{grn.alloy_surcharge_pence != null ? `£${(grn.alloy_surcharge_pence/100).toFixed(2)}` : "—"}</dd>
+                <dt>Confirmed</dt><dd>{grn.confirmed_at?.slice(0,10) || "—"}</dd>
+              </dl>
+            </div>
+          </div>
+
+          {grn.chemistry && (
+            <div className="grn-section" style={{ marginBottom: "1rem" }}>
+              <h3>Chemistry</h3>
+              <table className="conform-table">
+                <thead><tr>{CHEM_KEYS_D.filter(k => grn.chemistry![k] != null).map(k => <th key={k}>{k}</th>)}</tr></thead>
+                <tbody><tr>{CHEM_KEYS_D.filter(k => grn.chemistry![k] != null).map(k => <td key={k}>{grn.chemistry![k]}</td>)}</tr></tbody>
+              </table>
+            </div>
+          )}
+
+          {grn.mechanical && Object.values(grn.mechanical).some(v => v != null) && (
+            <div className="grn-section" style={{ marginBottom: "1rem" }}>
+              <h3>Mechanical</h3>
+              <table className="conform-table">
+                <thead><tr>{MECH_KEYS_D.filter(k => grn.mechanical![k] != null).map(k => <th key={k}>{k.replace(/_/g," ")}</th>)}</tr></thead>
+                <tbody><tr>{MECH_KEYS_D.filter(k => grn.mechanical![k] != null).map(k => <td key={k}>{grn.mechanical![k]}</td>)}</tr></tbody>
+              </table>
+            </div>
+          )}
+
+          {grn.conformance && grn.conformance.length > 0 && (
+            <div className="grn-section" style={{ marginBottom: "1rem" }}>
+              <h3>Spec conformance &nbsp;
+                {grn.conformance.every(r => r.pass)
+                  ? <span className="badge badge--pass">PASS</span>
+                  : <span className="badge badge--fail">FAIL</span>}
+              </h3>
+              <table className="conform-table">
+                <thead><tr><th>Element</th><th>Cert value</th><th>Lower</th><th>Upper</th><th>Result</th></tr></thead>
+                <tbody>
+                  {grn.conformance.map(r => (
+                    <tr key={r.element} className={r.pass ? "conform-pass" : "conform-fail"}>
+                      <td>{r.element}</td><td>{r.cert_value}</td>
+                      <td>{r.lower ?? "—"}</td><td>{r.upper ?? "—"}</td>
+                      <td>{r.pass ? "✓ PASS" : "✗ FAIL"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {(grn.cert_paths?.length ?? 0) > 0 && (
+            <button className="action-btn" onClick={viewCerts}>
+              View certs ({grn.cert_paths!.length})
+            </button>
+          )}
+        </div>
+      )}
     </Shell>
   )
 }
