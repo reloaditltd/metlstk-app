@@ -1,0 +1,13 @@
+{
+  "name": "Metlstk Shop Floor",
+  "short_name": "ShopFloor",
+  "description": "Works order & warehouse PWA for Metlstk",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#f97316",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
