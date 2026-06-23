@@ -1,4 +1,4 @@
-const CACHE = "metlstk-sf-v1"
+const CACHE = "metlstk-sf-v2"
 const SHELL = ["/", "/src/main.tsx"]
 
 self.addEventListener("install", e => {
