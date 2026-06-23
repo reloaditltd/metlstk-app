@@ -10182,3 +10182,79 @@ export function NCRDetail({ company, id }: { company: string; id: string }) {
     </div>
   )
 }
+
+// ── Import View ───────────────────────────────────────────────────────────────
+function _downloadCsvTemplate(filename: string, header: string) {
+  const blob = new Blob([header + "\n"], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+type _ImportResult = { imported: number; errors: { row: number; error: string }[] } | null
+
+function _ImportSection({ company, entity, label, header }: {
+  company: string
+  entity: "customers" | "suppliers" | "stock-items"
+  label: string
+  header: string
+}) {
+  const [file, setFile] = useState<File | null>(null)
+  const [result, setResult] = useState<_ImportResult>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function upload() {
+    if (!file) return
+    setLoading(true); setResult(null)
+    try {
+      const r = await api.importCsv(company, entity, file)
+      setResult(r)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: "1.5rem" }}>
+      <h4 style={{ marginBottom: ".4rem" }}>{label}</h4>
+      <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="action-btn"
+          onClick={() => _downloadCsvTemplate(`${entity}-template.csv`, header)}>
+          Download template
+        </button>
+        <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+        <button type="button" className="action-btn" onClick={upload} disabled={!file || loading}>
+          {loading ? "Uploading…" : "Upload"}
+        </button>
+      </div>
+      {result && (
+        <p style={{ marginTop: ".4rem", fontSize: ".85rem" }}>
+          {result.imported} imported, {result.errors.length} errors
+          {result.errors.length > 0 && (
+            <span style={{ color: "var(--color-error, red)" }}>
+              {" — "}{result.errors.slice(0, 3).map(e => `row ${e.row}: ${e.error}`).join("; ")}
+            </span>
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
+export function ImportView({ company }: { company: string }) {
+  return (
+    <div className="view-root">
+      <h2>Import data</h2>
+      <p style={{ marginBottom: "1.5rem", color: "var(--color-muted)" }}>
+        Upload CSV files to bulk-import records. Download a template first to see the required column layout.
+      </p>
+      <_ImportSection company={company} entity="customers" label="Customers"
+        header="account_code,name,address_line_1,address_line_2,postcode,telephone,email,website" />
+      <_ImportSection company={company} entity="suppliers" label="Suppliers"
+        header="account_code,name,address_line_1,address_line_2,postcode,telephone,email,website,is_subcontractor" />
+      <_ImportSection company={company} entity="stock-items" label="Stock items"
+        header="account_code,description_1,short_description,stock_unit_1,price_basis,nominal_price,weight_per_metre" />
+    </div>
+  )
+}

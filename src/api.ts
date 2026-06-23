@@ -1455,6 +1455,17 @@ export const api = {
     close: (co: string, id: string) =>
       post<NcrRow>(`${v1(co)}/ncr/${id}/close`, {}),
   },
+  adminCompanies: () => get<{ slug: string; name: string }[]>("/api/v1/admin/companies"),
+  createCompany: (body: object) => post<{ slug: string; name: string }>("/api/v1/admin/companies", body),
+  importCsv: async (company: string, entity: "customers" | "suppliers" | "stock-items", file: File) => {
+    const fd = new FormData(); fd.append("file", file)
+    const headers = await authHeader()
+    return fetch(`${BASE}/api/v1/${company}/import/${entity}`, {
+      method: "POST",
+      headers,
+      body: fd,
+    }).then(r => r.json()) as Promise<{ imported: number; errors: { row: number; error: string }[] }>
+  },
 }
 
 export type EdiPartner = {
