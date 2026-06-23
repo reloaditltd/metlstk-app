@@ -29,16 +29,164 @@ import {
   ProductionSchedule,
   EdiView,
   GradeRegisterView,
+  NCRList, NCRDetail,
+  ImportView,
   PortalApp,
 } from "./views"
 import { useSession, LoginPage } from "./auth"
 import { supabase } from "./supabase"
+import { api } from "./api"
 import PwaShell from "./Pwa"
 
-const COMPANIES: Record<string, string> = {
-  ferrovale: "Ferrovale Steel",
-  brackmoor: "Brackmoor Metals",
-  reload_metalstock: "Reload Metalstock",
+type CoEntry = { slug: string; name: string }
+
+// ── CSV template helper ───────────────────────────────────────────────────────
+function downloadCsvTemplate(filename: string, header: string) {
+  const blob = new Blob([header + "\n"], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ── Inline import section (used in wizard step 3) ────────────────────────────
+type WizardImportResult = { imported: number; errors: { row: number; error: string }[] } | null
+
+function WizardImportSection({ company, entity, label, header }: {
+  company: string; entity: "customers" | "suppliers" | "stock-items"; label: string; header: string
+}) {
+  const [file, setFile] = useState<File | null>(null)
+  const [result, setResult] = useState<WizardImportResult>(null)
+  const [loading, setLoading] = useState(false)
+  async function upload() {
+    if (!file) return
+    setLoading(true); setResult(null)
+    try { setResult(await api.importCsv(company, entity, file)) } finally { setLoading(false) }
+  }
+  return (
+    <div style={{ marginBottom: "1.5rem" }}>
+      <h4 style={{ marginBottom: ".4rem" }}>{label}</h4>
+      <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="btn btn-sm btn-secondary"
+          onClick={() => downloadCsvTemplate(`${entity}-template.csv`, header)}>Download template</button>
+        <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+        <button type="button" className="btn btn-sm" onClick={upload} disabled={!file || loading}>
+          {loading ? "Uploading…" : "Upload"}
+        </button>
+      </div>
+      {result && (
+        <p style={{ marginTop: ".4rem", fontSize: ".85rem" }}>
+          {result.imported} imported, {result.errors.length} errors
+          {result.errors.length > 0 && <span style={{ color: "var(--color-error, red)" }}>
+            {" — "}{result.errors.slice(0, 3).map(e => `row ${e.row}: ${e.error}`).join("; ")}
+          </span>}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── New Company Wizard ────────────────────────────────────────────────────────
+function toSlug(name: string) {
+  return name.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "").replace(/^_+/, "")
+}
+
+const CSV_HEADERS = {
+  customers: "account_code,name,address_line_1,address_line_2,postcode,telephone,email,website",
+  suppliers: "account_code,name,address_line_1,address_line_2,postcode,telephone,email,website,is_subcontractor",
+  "stock-items": "account_code,description_1,short_description,stock_unit_1,price_basis,nominal_price,weight_per_metre",
+}
+
+function NewCompanyWizard({ onClose, onDone }: { onClose: () => void; onDone: (co: CoEntry) => void }) {
+  const [step, setStep] = useState(1)
+  const [form, setForm] = useState({
+    slug: "", company_name: "", address_line_1: "", address_line_2: "",
+    postcode: "", telephone: "", email: "", vat_number: "", company_reg: "",
+    bank_name: "", bank_sort_code: "", bank_account_no: "", payment_terms: "30 days net",
+  })
+  const [error, setError] = useState("")
+  const [createdSlug, setCreatedSlug] = useState("")
+
+  function set(k: string, v: string) {
+    setForm(f => {
+      const next = { ...f, [k]: v }
+      if (k === "company_name" && !f.slug) next.slug = toSlug(v)
+      return next
+    })
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setStep(2); setError("")
+    try {
+      const result = await api.createCompany(form)
+      setCreatedSlug(result.slug)
+      setStep(3)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create company")
+    }
+  }
+
+  const modal = (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+      <div style={{ background: "var(--color-surface)", borderRadius: "8px", padding: "2rem", width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
+        <button type="button" className="modal-close" style={{ position: "absolute", top: "1rem", right: "1rem" }} onClick={onClose}>×</button>
+        {step === 1 && (
+          <form onSubmit={submit}>
+            <h2 style={{ marginBottom: "1.2rem" }}>New company</h2>
+            <div className="form-row"><label>Company name *<input className="form-input" required value={form.company_name} onChange={e => set("company_name", e.target.value)} /></label></div>
+            <div className="form-row"><label>Slug *<input className="form-input" required pattern="^[a-z][a-z0-9_]{1,62}$" value={form.slug} onChange={e => set("slug", e.target.value)} /></label></div>
+            <div className="form-row"><label>Address line 1<input className="form-input" value={form.address_line_1} onChange={e => set("address_line_1", e.target.value)} /></label></div>
+            <div className="form-row"><label>Address line 2<input className="form-input" value={form.address_line_2} onChange={e => set("address_line_2", e.target.value)} /></label></div>
+            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".5rem" }}>
+              <label>Postcode<input className="form-input" value={form.postcode} onChange={e => set("postcode", e.target.value)} /></label>
+              <label>Telephone<input className="form-input" value={form.telephone} onChange={e => set("telephone", e.target.value)} /></label>
+            </div>
+            <div className="form-row"><label>Email<input className="form-input" type="email" value={form.email} onChange={e => set("email", e.target.value)} /></label></div>
+            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: ".5rem" }}>
+              <label>VAT number<input className="form-input" value={form.vat_number} onChange={e => set("vat_number", e.target.value)} /></label>
+              <label>Company reg<input className="form-input" value={form.company_reg} onChange={e => set("company_reg", e.target.value)} /></label>
+            </div>
+            <div className="form-row"><label>Payment terms<input className="form-input" value={form.payment_terms} onChange={e => set("payment_terms", e.target.value)} /></label></div>
+            <div className="form-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: ".5rem" }}>
+              <label>Bank name<input className="form-input" value={form.bank_name} onChange={e => set("bank_name", e.target.value)} /></label>
+              <label>Sort code<input className="form-input" value={form.bank_sort_code} onChange={e => set("bank_sort_code", e.target.value)} /></label>
+              <label>Account no<input className="form-input" value={form.bank_account_no} onChange={e => set("bank_account_no", e.target.value)} /></label>
+            </div>
+            <button type="submit" className="btn" style={{ marginTop: "1rem", width: "100%" }}>Create company →</button>
+          </form>
+        )}
+        {step === 2 && (
+          <div style={{ textAlign: "center", padding: "2rem 0" }}>
+            <div className="spinner" style={{ margin: "0 auto 1rem" }} />
+            <p>Creating company schema… this takes about 30 seconds</p>
+            {error && <p style={{ color: "var(--color-error, red)", marginTop: "1rem" }}>{error}</p>}
+            {error && <button type="button" className="btn btn-secondary" style={{ marginTop: ".5rem" }} onClick={() => setStep(1)}>← Back</button>}
+          </div>
+        )}
+        {step === 3 && (
+          <div>
+            <h2 style={{ marginBottom: "1rem" }}>Import data (optional)</h2>
+            <WizardImportSection company={createdSlug} entity="customers" label="Customers" header={CSV_HEADERS.customers} />
+            <WizardImportSection company={createdSlug} entity="suppliers" label="Suppliers" header={CSV_HEADERS.suppliers} />
+            <WizardImportSection company={createdSlug} entity="stock-items" label="Stock items" header={CSV_HEADERS["stock-items"]} />
+            <button type="button" className="btn" style={{ marginTop: ".5rem" }} onClick={() => setStep(4)}>Finish →</button>
+          </div>
+        )}
+        {step === 4 && (
+          <div style={{ textAlign: "center", padding: "1rem 0" }}>
+            <h2>{form.company_name} is ready!</h2>
+            <p style={{ margin: "1rem 0" }}>Your new company has been set up.</p>
+            <button type="button" className="btn" onClick={() => {
+              onDone({ slug: createdSlug, name: form.company_name })
+              window.location.hash = `#/${createdSlug}/dashboard`
+            }}>Go to dashboard</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+  return createPortal(modal, document.body)
 }
 
 type NavItem = { id: string; label: string }
@@ -68,6 +216,7 @@ const NAV: NavEntry[] = [
     { id: "works-orders",      label: "Works Orders" },
     { id: "scheduling",        label: "Scheduling" },
     { id: "subcontracts",      label: "Subcontracts" },
+    { id: "ncr",               label: "NCR / RMA" },
     { id: "stock-adjustments", label: "Adjustments" },
     { id: "scrap",             label: "Scrap" },
   ] },
@@ -89,16 +238,17 @@ const NAV: NavEntry[] = [
     { id: "stock-mix",             label: "Stock Mix" },
   ] },
   { label: "Admin", items: [
-    { id: "admin",      label: "Settings & Users" },
-    { id: "accounting", label: "Accounting" },
-    { id: "fleet",      label: "Fleet" },
-    { id: "loads",      label: "Loads" },
-    { id: "fx",         label: "FX" },
-    { id: "terms",      label: "T&Cs" },
-    { id: "audit",      label: "Audit Log" },
-    { id: "branding",   label: "Branding" },
-    { id: "edi",        label: "EDI" },
+    { id: "admin",        label: "Settings & Users" },
+    { id: "accounting",   label: "Accounting" },
+    { id: "fleet",        label: "Fleet" },
+    { id: "loads",        label: "Loads" },
+    { id: "fx",           label: "FX" },
+    { id: "terms",        label: "T&Cs" },
+    { id: "audit",        label: "Audit Log" },
+    { id: "branding",     label: "Branding" },
+    { id: "edi",          label: "EDI" },
     { id: "grade-register", label: "Grade Register" },
+    { id: "import",       label: "Import" },
   ] },
   { id: "pwa", label: "Shop Floor" },
 ]
@@ -241,39 +391,58 @@ export default function App() {
   const hash = useHash()
   const session = useSession()
   const { company, module, id } = parseHash(hash)
+  const [companies, setCompanies] = useState<CoEntry[]>([])
+  const [showWizard, setShowWizard] = useState(false)
+
+  useEffect(() => {
+    if (!session) return
+    api.adminCompanies().then(setCompanies).catch(() => {})
+  }, [session])
 
   // Portal is a separate app with its own (Supabase) auth — render before the internal guard.
   if (hash.startsWith("#/portal")) return <PortalApp />
 
   if (session === undefined) return <p className="state-msg">Loading…</p>
   if (session === null) return <LoginPage />
-  if (module === "pwa" && company && company in COMPANIES)
+  if (module === "pwa" && company && companies.some(c => c.slug === company))
     return <PwaShell company={company} />
 
   const email = session.user?.email ?? ""
   const initials = email.slice(0, 2).toUpperCase()
 
-  if (!company || !(company in COMPANIES)) {
+  if (!company || !companies.some(c => c.slug === company)) {
     return (
-      <div className="picker">
-        <div className="picker-inner">
-          <div className="picker-logo">
-            <div className="brand-icon">M</div>
-            <span className="picker-brand">Metlstk</span>
-          </div>
-          <p>Select a company to continue</p>
-          <div className="co-grid">
-            {Object.entries(COMPANIES).map(([id, name]) => (
-              <a key={id} href={`#/${id}/dashboard`} className="co-card">
-                <strong>{name}</strong>
-                <span>{id}</span>
-              </a>
-            ))}
+      <>
+        <div className="picker">
+          <div className="picker-inner">
+            <div className="picker-logo">
+              <div className="brand-icon">M</div>
+              <span className="picker-brand">Metlstk</span>
+            </div>
+            <p>Select a company to continue</p>
+            <div className="co-grid">
+              {companies.map(c => (
+                <a key={c.slug} href={`#/${c.slug}/dashboard`} className="co-card">
+                  <strong>{c.name}</strong>
+                  <span>{c.slug}</span>
+                </a>
+              ))}
+            </div>
+            <button type="button" className="btn btn-secondary" style={{ marginTop: "1rem" }}
+              onClick={() => setShowWizard(true)}>+ New company</button>
           </div>
         </div>
-      </div>
+        {showWizard && (
+          <NewCompanyWizard
+            onClose={() => setShowWizard(false)}
+            onDone={co => { setCompanies(cs => [...cs, co]); setShowWizard(false) }}
+          />
+        )}
+      </>
     )
   }
+
+  const coName = companies.find(c => c.slug === company)?.name ?? company
 
   return (
     <div className="layout">
@@ -282,7 +451,7 @@ export default function App() {
           <div className="brand-icon">M</div>
           <span className="brand-name">Metlstk</span>
         </a>
-        <span className="co-label">{COMPANIES[company]}</span>
+        <span className="co-label">{coName}</span>
         <nav>
           {NAV.map(entry => (
             "items" in entry
@@ -367,8 +536,11 @@ export default function App() {
         {module === "stock-adjustments" && <StockAdjustmentsView company={company} />}
         {module === "scrap"             && <ScrapDashboard       company={company} />}
         {module === "subcontracts"      && <SubcontractsView     company={company} />}
+        {module === "ncr"               && !id && <NCRList company={company} onSelect={ncrId => { window.location.hash = `#/${company}/ncr/${ncrId}` }} />}
+        {module === "ncr"               &&  id && <NCRDetail company={company} id={id} />}
         {module === "edi"               && <EdiView              company={company} />}
         {module === "grade-register"    && <GradeRegisterView    company={company} />}
+        {module === "import"            && <ImportView           company={company} />}
       </main>
       <AssistPanel company={company} screen={`${module ?? "dashboard"}${id ? "/" + id : ""}`} />
     </div>

@@ -674,6 +674,10 @@ export type WorkOrderDetail = {
   parent_batch_no: string; grade: string | null; heat_no: string | null
   parent_length_mm: string | null; parent_qty_available: string | null
   plan?: WOPlan; outputs: WOOutput[]
+  nesting_export_data?: Record<string, unknown> | null
+  nesting_result_data?: { utilisation_pct: number; sheets_used: number; remnants?: unknown[]; notes?: string | null } | null
+  nesting_exported_at?: string | null
+  nesting_imported_at?: string | null
 }
 
 export type DashboardSummary = {
@@ -1106,6 +1110,9 @@ export const api = {
         `${v1(co)}/works-orders/${encodeURIComponent(no)}/complete`, {}),
     setStatus: (co: string, no: string, status: string) =>
       post<{ wo_no: string; status: string }>(`${v1(co)}/works-orders/${encodeURIComponent(no)}/status`, { status }),
+    nestingImport: (co: string, no: string, body: { utilisation_pct: number; sheets_used: number; remnants?: unknown[]; notes?: string }) =>
+      post<{ wo_no: string; nesting_result_data: unknown; nesting_imported_at: string }>(
+        `${v1(co)}/works-orders/${encodeURIComponent(no)}/nesting-import`, body),
   },
   mtcs: {
     list: (co: string, opts: { heat_number?: string; search?: string; unmatched?: boolean } = {}) => {
@@ -1433,6 +1440,21 @@ export const api = {
       grade_code: string; surcharge_per_tonne_pence: number; effective_from?: string
     }) => post<SurchargeRow>(`${v1(co)}/grades/alloy-surcharges`, body),
   },
+  ncr: {
+    list: (co: string, p: { status?: string; source?: string; assigned_to?: string } = {}) =>
+      get<NcrRow[]>(`${v1(co)}/ncr?${qs(p as Record<string, string | undefined>)}`),
+    get: (co: string, id: string) =>
+      get<NcrRow>(`${v1(co)}/ncr/${id}`),
+    create: (co: string, body: {
+      source?: string; source_ref?: string; batch_id?: number; description: string; assigned_to?: string
+    }) => post<NcrRow>(`${v1(co)}/ncr`, body),
+    update: (co: string, id: string, body: {
+      root_cause?: string; disposition?: string; rma_no?: string
+      corrective_action?: string; assigned_to?: string; status?: string
+    }) => patch<NcrRow>(`${v1(co)}/ncr/${id}`, body),
+    close: (co: string, id: string) =>
+      post<NcrRow>(`${v1(co)}/ncr/${id}/close`, {}),
+  },
 }
 
 export type EdiPartner = {
@@ -1689,6 +1711,29 @@ export type UnscheduledWO = {
   status: string
   cutting_list: unknown
   batch_desc: string | null
+  grade: string | null
+}
+
+export type NcrRow = {
+  id: number
+  subcontract_id: number | null
+  batch_id: number | null
+  description: string
+  raised_by: string | null
+  raised_at: string
+  status: string
+  source: string
+  source_ref: string | null
+  assigned_to: string | null
+  root_cause: string | null
+  disposition: string | null
+  rma_no: string | null
+  corrective_action: string | null
+  resolved_by: string | null
+  resolved_at: string | null
+  // joined
+  batch_no: string | null
+  batch_description: string | null
   grade: string | null
 }
 

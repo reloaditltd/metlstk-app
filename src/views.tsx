@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
 import {
   api,
+  type NcrRow,
   type Customer, type CustomerDetail,
   type PurchaseOrder, type PurchaseOrderDetail, type PurchaseOrderLine,
   type SalesOrder, type SalesOrderDetail, type SalesOrderLine,
@@ -4447,6 +4448,53 @@ export function WorkOrderNew({ company, initialBatch }: { company: string; initi
   )
 }
 
+function NestingImportForm({ company, woNo, onDone }: { company: string; woNo: string; onDone: () => void }) {
+  const [utilisation, setUtilisation] = useState("")
+  const [sheets, setSheets] = useState("1")
+  const [notes, setNotes] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setErr(null)
+    try {
+      await api.workOrders.nestingImport(company, woNo, {
+        utilisation_pct: parseFloat(utilisation),
+        sheets_used: parseInt(sheets, 10),
+        notes: notes || undefined,
+      })
+      onDone()
+    } catch (ex) {
+      setErr(String(ex))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", maxWidth: 340 }}>
+      <label>
+        Utilisation %
+        <input type="number" step="0.1" min="0" max="100" required value={utilisation}
+          onChange={e => setUtilisation(e.target.value)} />
+      </label>
+      <label>
+        Sheets used
+        <input type="number" min="1" required value={sheets}
+          onChange={e => setSheets(e.target.value)} />
+      </label>
+      <label>
+        Notes (optional)
+        <input type="text" value={notes} onChange={e => setNotes(e.target.value)} />
+      </label>
+      <button className="action-btn" type="submit" disabled={busy}>{busy ? "Saving…" : "Import results"}</button>
+      {err && <span className="badge" style={{ color: "var(--clr-danger)" }}>{err}</span>}
+    </form>
+  )
+}
+
 export function WorkOrderDetail({ company, id }: { company: string; id: string }) {
   const [rev, setRev] = useState(0)
   const { data: w, loading, error } = useData(() => api.workOrders.get(company, id), [company, id, rev])
@@ -4538,6 +4586,37 @@ export function WorkOrderDetail({ company, id }: { company: string; id: string }
               </table>
             </div>
           )}
+
+          <div className="grn-section">
+            <h3>2D Plate Nesting</h3>
+            {w.nesting_result_data ? (
+              <div>
+                <p>Utilisation: <strong>{w.nesting_result_data.utilisation_pct}%</strong></p>
+                <p>Sheets used: {w.nesting_result_data.sheets_used}</p>
+                {(w.nesting_result_data.remnants?.length ?? 0) > 0 && (
+                  <p>Remnants: {w.nesting_result_data.remnants!.length} piece(s)</p>
+                )}
+                {w.nesting_result_data.notes && <p>Notes: {w.nesting_result_data.notes}</p>}
+                <p className="muted">Imported: {w.nesting_imported_at}</p>
+              </div>
+            ) : w.nesting_export_data ? (
+              <div>
+                <p className="muted">Exported {w.nesting_exported_at}. Upload nesting results:</p>
+                <NestingImportForm company={company} woNo={w.wo_no} onDone={() => setRev(r => r + 1)} />
+              </div>
+            ) : (
+              <div>
+                <a
+                  href={`${import.meta.env.VITE_API_URL ?? ""}/api/v1/${company}/works-orders/${encodeURIComponent(w.wo_no)}/nesting-export`}
+                  download={`nesting-${w.wo_no}.json`}
+                  className="action-btn"
+                  onClick={() => setTimeout(() => setRev(r => r + 1), 1500)}
+                >
+                  Export for Nesting
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </Shell>
@@ -9668,7 +9747,7 @@ export function EdiView({ company }: { company: string }) {
       if (editPartner.id) {
         await api.edi.updatePartner(company, editPartner.id, editPartner as Parameters<typeof api.edi.updatePartner>[2])
       } else {
-        await api.edi.createPartner(company, editPartner as Parameters<typeof api.edi.createPartner>[1])
+        await api.edi.createPartner(company, editPartner as Parameters<typeof api.edi.createPartner>[2])
       }
       setEditPartner(null); loadPartners()
     } catch (ex) { setPErr(ex instanceof Error ? ex.message : String(ex)) }
@@ -9796,9 +9875,7 @@ export function EdiView({ company }: { company: string }) {
 // ── Grade Register ─────────────────────────────────────────────────────────────
 
 export function GradeRegisterView({ company }: { company: string }) {
-  const [tick, setTick] = useState(0)
-  const { data: grades } = useData(() => api.grades.list(company), [company, tick])
-  const refresh = () => setTick(t => t + 1)
+  const { data: grades, refresh } = useData(() => api.grades.list(company), [company])
   const [form, setForm] = useState({ grade_code: "", standard: "", material_type: "", density: "", min_cert_default: "" })
   const [surchargeForm, setSurchargeForm] = useState({ grade_code: "", surcharge_per_tonne_pence: "", effective_from: "" })
   const [err, setErr] = useState<string | null>(null)
@@ -9902,6 +9979,206 @@ export function GradeRegisterView({ company }: { company: string }) {
           onClick={saveSurcharge}
           disabled={!surchargeForm.grade_code.trim() || !surchargeForm.surcharge_per_tonne_pence}>Add surcharge</button>
       </details>
+    </div>
+  )
+}
+
+const NCR_STATUSES = ["open", "investigating", "disposition", "closed"]
+const NCR_DISPOSITIONS = ["pending", "rework", "scrap", "return_to_supplier", "use_as_is"]
+const NCR_SOURCES = ["subcontract", "pod_exception", "goods_in", "other"]
+
+function ncrStatusBadge(status: string) {
+  const cls =
+    status === "closed" ? "badge-success" :
+    status === "open" ? "badge-warn" :
+    "badge-info"
+  return <span className={`badge ${cls}`}>{status}</span>
+}
+
+export function NCRList({ company, onSelect }: { company: string; onSelect: (id: string) => void }) {
+  const [statusF, setStatusF] = useState("open")
+  const [sourceF, setSourceF] = useState("")
+
+  const { data: rows, loading, error } = useData<NcrRow[]>(
+    () => api.ncr.list(company, {
+      status: statusF || undefined,
+      source: sourceF || undefined,
+    }),
+    [company, statusF, sourceF],
+  )
+
+  return (
+    <div className="view-root">
+      <Toolbar title="NCR / RMA">
+        <select value={statusF} onChange={e => setStatusF(e.target.value)} style={{ marginLeft: "0.75rem" }}>
+          <option value="">All statuses</option>
+          {NCR_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={sourceF} onChange={e => setSourceF(e.target.value)} style={{ marginLeft: "0.5rem" }}>
+          <option value="">All sources</option>
+          {NCR_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </Toolbar>
+      {loading && <p className="state-msg">Loading…</p>}
+      {error && <p className="state-msg error">{error}</p>}
+      {rows && (
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Source</th>
+              <th>Ref</th>
+              <th>Description</th>
+              <th>Assigned to</th>
+              <th>Status</th>
+              <th>Raised</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>No NCRs found</td></tr>
+            )}
+            {rows.map(r => (
+              <tr key={r.id} className="clickable-row" onClick={() => onSelect(String(r.id))}>
+                <td>{r.id}</td>
+                <td>{r.source}</td>
+                <td>{r.source_ref ?? "—"}</td>
+                <td>{r.description}</td>
+                <td>{r.assigned_to ?? "—"}</td>
+                <td>{ncrStatusBadge(r.status)}</td>
+                <td>{fmtDate(r.raised_at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
+export function NCRDetail({ company, id }: { company: string; id: string }) {
+  const [ncr, setNcr] = useState<NcrRow | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const [form, setForm] = useState({
+    assigned_to: "",
+    root_cause: "",
+    disposition: "",
+    corrective_action: "",
+    rma_no: "",
+  })
+
+  const load = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    api.ncr.get(company, id)
+      .then(d => {
+        setNcr(d)
+        setForm({
+          assigned_to: d.assigned_to ?? "",
+          root_cause: d.root_cause ?? "",
+          disposition: d.disposition ?? "",
+          corrective_action: d.corrective_action ?? "",
+          rma_no: d.rma_no ?? "",
+        })
+        setLoading(false)
+      })
+      .catch(e => { setError(String(e)); setLoading(false) })
+  }, [company, id])
+
+  useEffect(() => { load() }, [load])
+
+  async function save() {
+    setSaving(true); setMsg(null)
+    try {
+      await api.ncr.update(company, id, {
+        assigned_to: form.assigned_to || undefined,
+        root_cause: form.root_cause || undefined,
+        disposition: form.disposition || undefined,
+        corrective_action: form.corrective_action || undefined,
+        rma_no: form.rma_no || undefined,
+      })
+      setMsg("Saved")
+      load()
+    } catch (e) { setMsg(String(e)) } finally { setSaving(false) }
+  }
+
+  async function closeNcr() {
+    if (!window.confirm("Close this NCR?")) return
+    setSaving(true); setMsg(null)
+    try {
+      await api.ncr.close(company, id)
+      setMsg("NCR closed")
+      load()
+    } catch (e) { setMsg(String(e)) } finally { setSaving(false) }
+  }
+
+  if (loading) return <p className="state-msg">Loading…</p>
+  if (error) return <p className="state-msg error">{error}</p>
+  if (!ncr) return null
+
+  const canClose = !!ncr.disposition && ncr.status !== "closed"
+
+  return (
+    <div className="view-root">
+      <Toolbar title={`NCR #${ncr.id}`}>
+        {ncrStatusBadge(ncr.status)}
+      </Toolbar>
+
+      <div className="detail-grid" style={{ maxWidth: "48em" }}>
+        <div className="detail-row"><span className="detail-label">Source</span><span>{ncr.source}{ncr.source_ref ? ` — ${ncr.source_ref}` : ""}</span></div>
+        <div className="detail-row"><span className="detail-label">Description</span><span>{ncr.description}</span></div>
+        <div className="detail-row"><span className="detail-label">Raised by</span><span>{ncr.raised_by ?? "—"}</span></div>
+        <div className="detail-row"><span className="detail-label">Raised at</span><span>{fmtDate(ncr.raised_at)}</span></div>
+        {ncr.batch_no && (
+          <div className="detail-row"><span className="detail-label">Batch</span><span>{ncr.batch_no}{ncr.batch_description ? ` — ${ncr.batch_description}` : ""}{ncr.grade ? ` (${ncr.grade})` : ""}</span></div>
+        )}
+        {ncr.resolved_at && (
+          <div className="detail-row"><span className="detail-label">Resolved</span><span>{fmtDate(ncr.resolved_at)} by {ncr.resolved_by ?? "—"}</span></div>
+        )}
+      </div>
+
+      <div className="form-section" style={{ marginTop: "1.5rem", maxWidth: "36em" }}>
+        <h2 className="section-h2">Edit NCR</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "max-content 1fr", gap: "0.5rem 1rem" }}>
+          <label>Assigned to</label>
+          <input value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))} disabled={ncr.status === "closed"} />
+
+          <label>Root cause</label>
+          <textarea rows={3} value={form.root_cause} onChange={e => setForm(f => ({ ...f, root_cause: e.target.value }))} disabled={ncr.status === "closed"} />
+
+          <label>Disposition</label>
+          <select value={form.disposition} onChange={e => setForm(f => ({ ...f, disposition: e.target.value }))} disabled={ncr.status === "closed"}>
+            <option value="">— select —</option>
+            {NCR_DISPOSITIONS.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+
+          {form.disposition === "return_to_supplier" && <>
+            <label>RMA number</label>
+            <input value={form.rma_no} onChange={e => setForm(f => ({ ...f, rma_no: e.target.value }))} disabled={ncr.status === "closed"} />
+          </>}
+
+          <label>Corrective action</label>
+          <textarea rows={3} value={form.corrective_action} onChange={e => setForm(f => ({ ...f, corrective_action: e.target.value }))} disabled={ncr.status === "closed"} />
+        </div>
+
+        <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          {ncr.status !== "closed" && (
+            <button className="action-btn" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          )}
+          {canClose && (
+            <button className="action-btn action-btn--danger" onClick={closeNcr} disabled={saving}>
+              Close NCR
+            </button>
+          )}
+          {msg && <span className="inline-msg">{msg}</span>}
+        </div>
+      </div>
     </div>
   )
 }
