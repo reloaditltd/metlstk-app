@@ -9668,7 +9668,7 @@ export function EdiView({ company }: { company: string }) {
       if (editPartner.id) {
         await api.edi.updatePartner(company, editPartner.id, editPartner as Parameters<typeof api.edi.updatePartner>[2])
       } else {
-        await api.edi.createPartner(company, editPartner as Parameters<typeof api.edi.createPartner>[2])
+        await api.edi.createPartner(company, editPartner as Parameters<typeof api.edi.createPartner>[1])
       }
       setEditPartner(null); loadPartners()
     } catch (ex) { setPErr(ex instanceof Error ? ex.message : String(ex)) }
@@ -9796,7 +9796,9 @@ export function EdiView({ company }: { company: string }) {
 // ── Grade Register ─────────────────────────────────────────────────────────────
 
 export function GradeRegisterView({ company }: { company: string }) {
-  const { data: grades, refresh } = useData(() => api.grades.list(company), [company])
+  const [tick, setTick] = useState(0)
+  const { data: grades } = useData(() => api.grades.list(company), [company, tick])
+  const refresh = () => setTick(t => t + 1)
   const [form, setForm] = useState({ grade_code: "", standard: "", material_type: "", density: "", min_cert_default: "" })
   const [surchargeForm, setSurchargeForm] = useState({ grade_code: "", surcharge_per_tonne_pence: "", effective_from: "" })
   const [err, setErr] = useState<string | null>(null)
