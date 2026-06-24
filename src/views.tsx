@@ -10183,8 +10183,8 @@ export function NCRDetail({ company, id }: { company: string; id: string }) {
   )
 }
 
-// ── Import View ───────────────────────────────────────────────────────────────
-function _downloadCsvTemplate(filename: string, header: string) {
+// ── Import helpers (exported for App.tsx wizard reuse) ────────────────────────
+export function downloadCsvTemplate(filename: string, header: string) {
   const blob = new Blob([header + "\n"], { type: "text/csv" })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
@@ -10192,39 +10192,41 @@ function _downloadCsvTemplate(filename: string, header: string) {
   URL.revokeObjectURL(url)
 }
 
-type _ImportResult = { imported: number; errors: { row: number; error: string }[] } | null
+export const CSV_IMPORT_HEADERS = {
+  customers: "account_code,name,address_line_1,address_line_2,postcode,telephone,email,website",
+  suppliers: "account_code,name,address_line_1,address_line_2,postcode,telephone,email,website,is_subcontractor",
+  "stock-items": "account_code,description_1,short_description,stock_unit_1,price_basis,nominal_price,weight_per_metre",
+}
 
-function _ImportSection({ company, entity, label, header }: {
+export type ImportCsvResult = { imported: number; errors: { row: number; error: string }[] } | null
+
+export function ImportSection({ company, entity, label, header, compact }: {
   company: string
   entity: "customers" | "suppliers" | "stock-items"
   label: string
   header: string
+  compact?: boolean
 }) {
   const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<_ImportResult>(null)
+  const [result, setResult] = useState<ImportCsvResult>(null)
   const [loading, setLoading] = useState(false)
 
   async function upload() {
     if (!file) return
     setLoading(true); setResult(null)
-    try {
-      const r = await api.importCsv(company, entity, file)
-      setResult(r)
-    } finally {
-      setLoading(false)
-    }
+    try { setResult(await api.importCsv(company, entity, file)) } finally { setLoading(false) }
   }
 
   return (
     <div style={{ marginBottom: "1.5rem" }}>
       <h4 style={{ marginBottom: ".4rem" }}>{label}</h4>
       <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
-        <button type="button" className="action-btn"
-          onClick={() => _downloadCsvTemplate(`${entity}-template.csv`, header)}>
+        <button type="button" className={compact ? "btn btn-sm btn-secondary" : "action-btn"}
+          onClick={() => downloadCsvTemplate(`${entity}-template.csv`, header)}>
           Download template
         </button>
         <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
-        <button type="button" className="action-btn" onClick={upload} disabled={!file || loading}>
+        <button type="button" className={compact ? "btn btn-sm" : "action-btn"} onClick={upload} disabled={!file || loading}>
           {loading ? "Uploading…" : "Upload"}
         </button>
       </div>
@@ -10242,6 +10244,7 @@ function _ImportSection({ company, entity, label, header }: {
   )
 }
 
+// ── Import View ───────────────────────────────────────────────────────────────
 export function ImportView({ company }: { company: string }) {
   return (
     <div className="view-root">
@@ -10249,12 +10252,9 @@ export function ImportView({ company }: { company: string }) {
       <p style={{ marginBottom: "1.5rem", color: "var(--color-muted)" }}>
         Upload CSV files to bulk-import records. Download a template first to see the required column layout.
       </p>
-      <_ImportSection company={company} entity="customers" label="Customers"
-        header="account_code,name,address_line_1,address_line_2,postcode,telephone,email,website" />
-      <_ImportSection company={company} entity="suppliers" label="Suppliers"
-        header="account_code,name,address_line_1,address_line_2,postcode,telephone,email,website,is_subcontractor" />
-      <_ImportSection company={company} entity="stock-items" label="Stock items"
-        header="account_code,description_1,short_description,stock_unit_1,price_basis,nominal_price,weight_per_metre" />
+      <ImportSection company={company} entity="customers" label="Customers" header={CSV_IMPORT_HEADERS.customers} />
+      <ImportSection company={company} entity="suppliers" label="Suppliers" header={CSV_IMPORT_HEADERS.suppliers} />
+      <ImportSection company={company} entity="stock-items" label="Stock items" header={CSV_IMPORT_HEADERS["stock-items"]} />
     </div>
   )
 }

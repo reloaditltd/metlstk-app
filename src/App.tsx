@@ -31,6 +31,7 @@ import {
   GradeRegisterView,
   NCRList, NCRDetail,
   ImportView,
+  ImportSection, CSV_IMPORT_HEADERS,
   PortalApp,
 } from "./views"
 import { useSession, LoginPage } from "./auth"
@@ -41,60 +42,9 @@ import PwaShell from "./Pwa"
 type CoEntry = { slug: string; name: string }
 
 // ── CSV template helper ───────────────────────────────────────────────────────
-function downloadCsvTemplate(filename: string, header: string) {
-  const blob = new Blob([header + "\n"], { type: "text/csv" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url; a.download = filename; a.click()
-  URL.revokeObjectURL(url)
-}
-
-// ── Inline import section (used in wizard step 3) ────────────────────────────
-type WizardImportResult = { imported: number; errors: { row: number; error: string }[] } | null
-
-function WizardImportSection({ company, entity, label, header }: {
-  company: string; entity: "customers" | "suppliers" | "stock-items"; label: string; header: string
-}) {
-  const [file, setFile] = useState<File | null>(null)
-  const [result, setResult] = useState<WizardImportResult>(null)
-  const [loading, setLoading] = useState(false)
-  async function upload() {
-    if (!file) return
-    setLoading(true); setResult(null)
-    try { setResult(await api.importCsv(company, entity, file)) } finally { setLoading(false) }
-  }
-  return (
-    <div style={{ marginBottom: "1.5rem" }}>
-      <h4 style={{ marginBottom: ".4rem" }}>{label}</h4>
-      <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn btn-sm btn-secondary"
-          onClick={() => downloadCsvTemplate(`${entity}-template.csv`, header)}>Download template</button>
-        <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
-        <button type="button" className="btn btn-sm" onClick={upload} disabled={!file || loading}>
-          {loading ? "Uploading…" : "Upload"}
-        </button>
-      </div>
-      {result && (
-        <p style={{ marginTop: ".4rem", fontSize: ".85rem" }}>
-          {result.imported} imported, {result.errors.length} errors
-          {result.errors.length > 0 && <span style={{ color: "var(--color-error, red)" }}>
-            {" — "}{result.errors.slice(0, 3).map(e => `row ${e.row}: ${e.error}`).join("; ")}
-          </span>}
-        </p>
-      )}
-    </div>
-  )
-}
-
 // ── New Company Wizard ────────────────────────────────────────────────────────
 function toSlug(name: string) {
   return name.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "").replace(/^_+/, "")
-}
-
-const CSV_HEADERS = {
-  customers: "account_code,name,address_line_1,address_line_2,postcode,telephone,email,website",
-  suppliers: "account_code,name,address_line_1,address_line_2,postcode,telephone,email,website,is_subcontractor",
-  "stock-items": "account_code,description_1,short_description,stock_unit_1,price_basis,nominal_price,weight_per_metre",
 }
 
 function NewCompanyWizard({ onClose, onDone }: { onClose: () => void; onDone: (co: CoEntry) => void }) {
@@ -167,9 +117,9 @@ function NewCompanyWizard({ onClose, onDone }: { onClose: () => void; onDone: (c
         {step === 3 && (
           <div>
             <h2 style={{ marginBottom: "1rem" }}>Import data (optional)</h2>
-            <WizardImportSection company={createdSlug} entity="customers" label="Customers" header={CSV_HEADERS.customers} />
-            <WizardImportSection company={createdSlug} entity="suppliers" label="Suppliers" header={CSV_HEADERS.suppliers} />
-            <WizardImportSection company={createdSlug} entity="stock-items" label="Stock items" header={CSV_HEADERS["stock-items"]} />
+            <ImportSection compact company={createdSlug} entity="customers" label="Customers" header={CSV_IMPORT_HEADERS.customers} />
+            <ImportSection compact company={createdSlug} entity="suppliers" label="Suppliers" header={CSV_IMPORT_HEADERS.suppliers} />
+            <ImportSection compact company={createdSlug} entity="stock-items" label="Stock items" header={CSV_IMPORT_HEADERS["stock-items"]} />
             <button type="button" className="btn" style={{ marginTop: ".5rem" }} onClick={() => setStep(4)}>Finish →</button>
           </div>
         )}
@@ -404,13 +354,14 @@ export default function App() {
 
   if (session === undefined) return <p className="state-msg">Loading…</p>
   if (session === null) return <LoginPage />
-  if (module === "pwa" && company && companies.some(c => c.slug === company))
-    return <PwaShell company={company} />
+  const validCompany = company ? companies.some(c => c.slug === company) : false
+  if (module === "pwa" && validCompany)
+    return <PwaShell company={company!} />
 
   const email = session.user?.email ?? ""
   const initials = email.slice(0, 2).toUpperCase()
 
-  if (!company || !companies.some(c => c.slug === company)) {
+  if (!company || !validCompany) {
     return (
       <>
         <div className="picker">
