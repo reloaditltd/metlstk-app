@@ -3114,14 +3114,11 @@ export function GRNDetail({ company, id }: { company: string; id: string }) {
 }
 
 // ── Stock batches list ────────────────────────────────────────────────────────
-type SplitState = { batchNo: string; max: number; qty: string; length_mm: string; saving: boolean; err: string | null }
-
 type BatchFilterState = { search: string; account_code: string; grade: string; status: string; warehouse: string; uncerted: boolean }
 
 export function StockBatchList({ company }: { company: string }) {
   const [rows, setRows] = useState<StockBatch[]>([])
   const [loading, setLoading] = useState(true)
-  const [split, setSplit] = useState<SplitState | null>(null)
   const [f, setF] = useState<BatchFilterState>({ search: "", account_code: "", grade: "", status: "", warehouse: "", uncerted: false })
   const [summary, setSummary] = useState<StockSummaryRow[] | null>(null)
   const qSearch = useDebounce(f.search, 400)
@@ -3136,22 +3133,6 @@ export function StockBatchList({ company }: { company: string }) {
     }).then(setRows).catch(console.error).finally(() => setLoading(false))
   }, [company, qSearch, f.account_code, f.grade, f.status, f.warehouse, f.uncerted])
   useEffect(() => { reload() }, [reload])
-
-  async function confirmSplit() {
-    if (!split) return
-    const qty = parseFloat(split.qty)
-    if (!qty || qty <= 0) return
-    setSplit(s => s && { ...s, saving: true, err: null })
-    try {
-      const body: { qty_cut: number; length_mm?: number } = { qty_cut: qty }
-      if (split.length_mm) body.length_mm = parseFloat(split.length_mm)
-      await api.batches.split(company, split.batchNo, body)
-      setSplit(null)
-      reload()
-    } catch (e) {
-      setSplit(s => s && { ...s, saving: false, err: String(e) })
-    }
-  }
 
   async function toggleSummary() {
     if (summary) { setSummary(null); return }
@@ -3196,31 +3177,13 @@ export function StockBatchList({ company }: { company: string }) {
           </table>
         </div>
       )}
-      {split && (
-        <div className="split-panel">
-          <strong>Split {split.batchNo}</strong>
-          <label>Qty to cut (max {split.max})</label>
-          <input type="number" min="0.0001" max={split.max} step="any"
-            value={split.qty} onChange={e => setSplit(s => s && { ...s, qty: e.target.value })} />
-          <label>Length (mm, optional)</label>
-          <input type="number" min="1" step="1"
-            value={split.length_mm} onChange={e => setSplit(s => s && { ...s, length_mm: e.target.value })} />
-          {split.err && <span className="badge badge--fail">{split.err}</span>}
-          <div className="split-actions">
-            <button className="action-btn" disabled={split.saving} onClick={confirmSplit}>
-              {split.saving ? "Saving…" : "Confirm split"}
-            </button>
-            <button onClick={() => setSplit(null)}>Cancel</button>
-          </div>
-        </div>
-      )}
       <div className="table-wrap">
       <table style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
         <thead><tr>
           <th>Batch</th><th>GRN</th><th>Code</th><th>Grade</th><th>Spec</th>
-          <th>Heat No</th><th>Cert Ref</th><th>Qty In</th><th>On Ord</th><th>Free</th>
-          <th>Unit</th><th>Whse</th><th>Conf</th><th>Status</th><th>Date</th>
-          <th className="r">Base £</th><th className="r">Alloy £</th><th className="r">Total £</th><th></th>
+          <th>Qty In</th><th>On Ord</th><th>Free</th>
+          <th>Unit</th><th>Whse</th><th>Status</th><th>Date</th>
+          <th className="r">Base £</th><th className="r">Alloy £</th><th className="r">Total £</th>
         </tr></thead>
         <tbody>
           {rows.map(r => {
@@ -3231,29 +3194,17 @@ export function StockBatchList({ company }: { company: string }) {
               <td>{r.grn_no}</td>
               <td>{r.stock_account_code}</td>
               <td>{r.grade}</td>
-              <td>{r.spec}</td>
-              <td>{r.heat_no}</td>
-              <td>{r.cert_ref}</td>
+              <td>{r.spec || "—"}</td>
               <td>{fmtQty(r.qty_received)}</td>
               <td style={{ color: r.qty_allocated > 0 ? "var(--color-warn, #a06000)" : undefined }}>{r.qty_allocated > 0 ? fmtQty(r.qty_allocated) : "—"}</td>
               <td style={{ color: free <= 0 ? "var(--color-danger, #c00)" : undefined, fontWeight: r.qty_allocated > 0 ? 600 : undefined }}>{fmtQty(free)}</td>
               <td>{r.unit}</td>
               <td>{r.warehouse || "—"}</td>
-              <td>{r.conformance_pass === true
-                ? <span className="badge badge--pass">PASS</span>
-                : r.conformance_pass === false
-                ? <span className="badge badge--fail">FAIL</span>
-                : "—"}</td>
               <td><Badge value={r.status} /></td>
               <td>{fmtDate(r.created_at)}</td>
               <td className="r">{r.cost_base != null ? fmtGbp(r.cost_base) : "—"}</td>
               <td className="r">{r.cost_alloy_surcharge != null ? fmtGbp(r.cost_alloy_surcharge) : "—"}</td>
               <td className="r">{r.cost_total != null ? fmtGbp(r.cost_total) : "—"}</td>
-              <td>{r.status === "available" && r.qty_available > 0 &&
-                <button className="action-btn" onClick={() =>
-                  setSplit({ batchNo: r.batch_no, max: r.qty_available, qty: "", length_mm: "", saving: false, err: null })
-                }>Split</button>
-              }</td>
             </tr>
           )})}
         </tbody>
@@ -3969,6 +3920,7 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
   const [adjNotes, setAdjNotes] = useState("")
   const [batchStatus, setBatchStatus] = useState<"available" | "quarantine" | "on_hold">("available")
   const [msg, setMsg] = useState<string | null>(null)
+  const [splitForm, setSplitForm] = useState<{ qty: string; len: string; saving: boolean; err: string | null } | null>(null)
 
   useEffect(() => {
     if (b?.status && ["available", "quarantine", "on_hold"].includes(b.status))
@@ -3994,12 +3946,38 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
     } catch (e) { setMsg(String(e)) }
   }
 
+  async function confirmSplit() {
+    if (!splitForm || !b) return
+    const qty = parseFloat(splitForm.qty)
+    if (!qty || qty <= 0) return
+    setSplitForm(s => s && { ...s, saving: true, err: null })
+    try {
+      const body: { qty_cut: number; length_mm?: number } = { qty_cut: qty }
+      if (splitForm.len) body.length_mm = parseFloat(splitForm.len)
+      await api.batches.split(company, b.batch_no, body)
+      setSplitForm(null)
+      setMsg("Batch split — new child batch created")
+      setRev(r => r + 1)
+    } catch (e) {
+      setSplitForm(s => s && { ...s, saving: false, err: String(e) })
+    }
+  }
+
   return (
     <Shell loading={loading} error={error}>
       <a className="back-link" href={`#/${company}/batches`}>← Back to batches</a>
       {b && (
         <div className="grn-shell">
+
+          {msg && (
+            <div className="batch-msg-banner">
+              <span>{msg}</span>
+              <button onClick={() => setMsg(null)}>✕</button>
+            </div>
+          )}
+
           <div className="detail-grid">
+            {/* Identity */}
             <div className="detail-card">
               <h3>Batch {b.batch_no}</h3>
               <dl>
@@ -4013,24 +3991,32 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
                 <dt>Status</dt><dd><Badge value={b.status} /></dd>
               </dl>
             </div>
+
+            {/* Quantity */}
             <div className="detail-card">
               <h3>Quantity / weight</h3>
               <dl>
                 <dt>Received</dt><dd>{fmtQty(b.qty_received)} {b.unit}</dd>
                 <dt>Available</dt><dd>{fmtQty(b.qty_available)} {b.unit}</dd>
+                <dt>On orders</dt><dd>{b.qty_allocated > 0 ? `${fmtQty(b.qty_allocated)} ${b.unit}` : "—"}</dd>
+                <dt>Free qty</dt><dd><strong>{fmtQty(b.qty_available - (b.qty_allocated ?? 0))} {b.unit}</strong></dd>
                 <dt>Length</dt><dd>{b.length_mm != null ? `${b.length_mm} mm` : "—"}</dd>
                 <dt>Theoretical</dt><dd>{fmtKg(b.weight_theoretical_kg)}</dd>
                 <dt>Actual</dt><dd>{fmtKg(b.weight_actual_kg)}</dd>
               </dl>
             </div>
+
+            {/* Purchase cost */}
             <div className="detail-card">
-              <h3>Purchase cost {b.cost_basis ? `(per ${b.cost_basis})` : ""}</h3>
+              <h3>Purchase cost{b.cost_basis ? ` (per ${b.cost_basis})` : ""}</h3>
               <dl>
                 <dt>Base price</dt><dd>{b.cost_base != null ? fmtGbp(b.cost_base) : "—"}</dd>
                 <dt>Alloy surcharge</dt><dd>{b.cost_alloy_surcharge != null ? fmtGbp(b.cost_alloy_surcharge) : "—"}</dd>
                 <dt>Total cost</dt><dd>{b.cost_total != null ? <strong>{fmtGbp(b.cost_total)}</strong> : "—"}</dd>
               </dl>
             </div>
+
+            {/* Origin */}
             <div className="detail-card">
               <h3>Origin</h3>
               <dl>
@@ -4043,46 +4029,91 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
                     </a>
                   </dd>
                 </>}
-                {b.country_of_origin && <>
-                  <dt>Country</dt><dd>{b.country_of_origin}</dd>
-                </>}
-                <dt>On orders</dt><dd>{b.qty_allocated > 0 ? `${fmtQty(b.qty_allocated)} ${b.unit}` : "—"}</dd>
-                <dt>Free qty</dt><dd>{fmtQty(b.qty_available - (b.qty_allocated ?? 0))} {b.unit}</dd>
+                {b.country_of_origin && <><dt>Country</dt><dd>{b.country_of_origin}</dd></>}
               </dl>
-              <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.4rem" }}>
-                <input placeholder="Transfer to warehouse" value={wh} onChange={e => setWh(e.target.value)} />
-                <button className="action-btn" onClick={transfer}>Transfer</button>
-              </div>
-              {b.status === "available" && b.qty_available > 0 && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <a className="action-btn" href={`#/${company}/works-orders/new?batch=${encodeURIComponent(b.batch_no)}`}>New works order →</a>
-                </div>
-              )}
-              {!["allocated", "despatched"].includes(b.status) && (
-                <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                  <select value={batchStatus} onChange={e => setBatchStatus(e.target.value as "available" | "quarantine" | "on_hold")} style={{ fontSize: "0.85rem" }}>
-                    <option value="available">available</option>
-                    <option value="quarantine">quarantine</option>
-                    <option value="on_hold">on_hold</option>
-                  </select>
-                  <button onClick={async () => {
-                    try { await api.batches.setStatus(company, b.batch_no, batchStatus); setRev(r => r + 1); setMsg(`Status → ${batchStatus}`) }
-                    catch (e) { setMsg(String(e)) }
-                  }}>Set status</button>
-                </div>
-              )}
-              {msg && <span className="badge" style={{ marginTop: "0.4rem", display: "inline-block" }}>{msg}</span>}
             </div>
           </div>
 
-          <div className="grn-section" style={{ marginBottom: "1rem" }}>
+          {/* Warehouse transfer */}
+          <div className="grn-section batch-action-section">
+            <h3>Warehouse transfer</h3>
+            <div className="batch-action-row">
+              <input placeholder="New warehouse location" value={wh}
+                onChange={e => setWh(e.target.value)} style={{ flex: "1 1 200px", maxWidth: "320px" }} />
+              <button className="action-btn" onClick={transfer} disabled={!wh.trim()}>Transfer</button>
+            </div>
+          </div>
+
+          {/* Batch status */}
+          {!["allocated", "despatched"].includes(b.status) && (
+            <div className="grn-section batch-action-section">
+              <h3>Batch status</h3>
+              <div className="batch-action-row">
+                <select value={batchStatus}
+                  onChange={e => setBatchStatus(e.target.value as "available" | "quarantine" | "on_hold")}
+                  style={{ fontSize: ".85rem" }}>
+                  <option value="available">Available</option>
+                  <option value="quarantine">Quarantine</option>
+                  <option value="on_hold">On hold</option>
+                </select>
+                <button className="action-btn" onClick={async () => {
+                  try { await api.batches.setStatus(company, b.batch_no, batchStatus); setRev(r => r + 1); setMsg(`Status set to ${batchStatus}`) }
+                  catch (e) { setMsg(String(e)) }
+                }}>Set status</button>
+                {b.status === "available" && b.qty_available > 0 && (
+                  <a className="action-btn" style={{ textDecoration: "none" }}
+                    href={`#/${company}/works-orders/new?batch=${encodeURIComponent(b.batch_no)}`}>
+                    New works order →
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Split batch */}
+          {b.status === "available" && b.qty_available > 0 && (
+            <div className="grn-section batch-action-section">
+              <h3>Split batch</h3>
+              {splitForm === null ? (
+                <button className="action-btn"
+                  onClick={() => setSplitForm({ qty: "", len: "", saving: false, err: null })}>
+                  Split this batch
+                </button>
+              ) : (
+                <div className="batch-split-form">
+                  <label className="batch-split-field">
+                    <span>Qty to cut <small>(max {fmtQty(b.qty_available)} {b.unit})</small></span>
+                    <input type="number" min="0.0001" max={b.qty_available} step="any"
+                      value={splitForm.qty}
+                      onChange={e => setSplitForm(s => s && { ...s, qty: e.target.value })} />
+                  </label>
+                  <label className="batch-split-field">
+                    <span>Length mm <small>(optional)</small></span>
+                    <input type="number" min="1" step="1"
+                      value={splitForm.len}
+                      onChange={e => setSplitForm(s => s && { ...s, len: e.target.value })} />
+                  </label>
+                  <div className="batch-action-row" style={{ alignSelf: "flex-end" }}>
+                    <button className="action-btn" disabled={splitForm.saving || !splitForm.qty} onClick={confirmSplit}>
+                      {splitForm.saving ? "Saving…" : "Confirm split"}
+                    </button>
+                    <button onClick={() => setSplitForm(null)}>Cancel</button>
+                  </div>
+                  {splitForm.err && <span className="badge badge--fail" style={{ gridColumn: "1/-1" }}>{splitForm.err}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Genealogy */}
+          <div className="grn-section batch-action-section">
             <h3>Genealogy</h3>
             {b.genealogy.parents.length === 0 && b.genealogy.children.length === 0 ? (
-              <p className="state-msg">Original mill batch — no cuts recorded.</p>
+              <p className="state-msg" style={{ margin: 0 }}>Original mill batch — no cuts recorded.</p>
             ) : (
               <>
                 {b.genealogy.parents.length > 0 && (
-                  <p>Cut from:{" "}
+                  <p style={{ margin: "0 0 .75rem" }}>Cut from:{" "}
                     {b.genealogy.parents.map(p => (
                       <a key={p.id} href={`#/${company}/batches/${p.parent_batch_no}`} style={{ marginRight: "0.6rem" }}>
                         {p.parent_batch_no} ({p.quantity_from_parent})
@@ -4109,23 +4140,28 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
             )}
           </div>
 
+          {/* Stock-take adjustment */}
           {b.status === "available" && (
-            <div className="grn-section" style={{ marginBottom: "1rem" }}>
+            <div className="grn-section batch-action-section">
               <h3>Stock-take adjustment</h3>
-              <p style={{ fontSize: "0.85rem", color: "var(--color-text-muted,#888)", marginTop: 0 }}>
-                Set the new physical quantity for this batch. Updates stock item qty and logs an adjustment transaction.
+              <p style={{ fontSize: ".85rem", color: "var(--text-muted)", margin: "0 0 .75rem" }}>
+                Set the new physical quantity. Updates the stock item and logs an adjustment transaction.
               </p>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-                <input type="number" min={0} step="0.001" placeholder={`New qty (was ${b.qty_available})`}
-                  value={adjQty} onChange={e => setAdjQty(e.target.value)} style={{ width: "10em" }} />
-                <input placeholder="Notes (optional)" value={adjNotes} onChange={e => setAdjNotes(e.target.value)} style={{ width: "16em" }} />
+              <div className="batch-action-row">
+                <input type="number" min={0} step="0.001"
+                  placeholder={`New qty (was ${b.qty_available})`}
+                  value={adjQty} onChange={e => setAdjQty(e.target.value)}
+                  style={{ width: "10rem" }} />
+                <input placeholder="Notes (optional)" value={adjNotes}
+                  onChange={e => setAdjNotes(e.target.value)} style={{ flex: "1 1 14rem", maxWidth: "280px" }} />
                 <button className="action-btn" onClick={adjust} disabled={!adjQty}>Adjust</button>
               </div>
             </div>
           )}
 
+          {/* Certificates */}
           {b.mtcs.length > 0 && (
-            <div className="grn-section">
+            <div className="grn-section batch-action-section">
               <h3>Certificates</h3>
               <table>
                 <thead><tr><th>Cert Ref</th><th>Heat</th><th>Grade</th><th>Verified</th></tr></thead>
@@ -4141,6 +4177,7 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
               </table>
             </div>
           )}
+
         </div>
       )}
     </Shell>

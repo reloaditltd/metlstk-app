@@ -534,14 +534,21 @@ code { font-family: var(--mono); font-size: .78rem; background: #F1F5F9; padding
 .conform-fail td:last-child { color: var(--red); font-weight: 700; }
 .conform-fail { background: #FFFBFA; }
 
-/* ── Split panel ── */
-.split-panel { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .85rem 1.1rem; margin-bottom: 1rem; background: var(--surface); border: 1.5px solid var(--border-mid); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
-.split-panel label { font-size: .78rem; font-weight: 600; color: var(--text-mid); white-space: nowrap; }
-.split-panel input { width: 9rem; padding: 7px 10px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm); font-size: .875rem; font-family: var(--font); outline: none; transition: border-color .15s, box-shadow .15s; }
-.split-panel input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
-.split-actions { display: flex; gap: .5rem; margin-left: auto; }
-.split-actions button:last-child { background: none; border: 1.5px solid var(--border-mid); border-radius: var(--radius-pill); padding: 7px 16px; font-size: .85rem; font-weight: 600; font-family: var(--font); color: var(--text-mid); cursor: pointer; transition: all .15s; }
-.split-actions button:last-child:hover { border-color: var(--brand); color: var(--brand); }
+/* ── Batch detail action sections ── */
+.batch-action-section { margin-bottom: 1rem; }
+.batch-action-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.batch-split-form { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: flex-end; }
+.batch-split-field { display: flex; flex-direction: column; gap: .3rem; font-size: .8rem; font-weight: 600; color: var(--text-mid); }
+.batch-split-field small { font-weight: 400; color: var(--text-muted); }
+.batch-split-field input { width: 10rem; }
+.batch-msg-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-bottom: 1rem; padding: .6rem 1rem;
+  background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-md);
+  font-size: .875rem; color: var(--navy);
+}
+.batch-msg-banner button { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: .9rem; padding: 0 .2rem; line-height: 1; }
+.batch-msg-banner button:hover { color: var(--navy); }
 
 /* ── Global form controls — nothing falls back to OS chrome ── */
 input, select, textarea {
