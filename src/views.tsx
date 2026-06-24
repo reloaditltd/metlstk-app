@@ -8575,165 +8575,310 @@ export function AccountingView({ company }: { company: string }) {
 
 // ── Stock Adjustments ─────────────────────────────────────────────────────────
 
-const ADJUSTMENT_TYPES = ["quantity", "weight", "location", "grade", "quarantine", "write_off"]
-const REASON_CODES = [
-  "counting_error", "unrecorded_consumption", "unrecorded_receipt",
-  "damage_write_off", "theft_loss", "system_error",
-  "weight_reweigh", "location_move", "grade_correction",
-  "quarantine_hold", "quarantine_release", "write_off",
-]
+const ADJ_TYPE_LABELS: Record<string, string> = {
+  quantity:  "Quantity adjustment",
+  weight:    "Weight reweigh",
+  location:  "Location / warehouse move",
+  grade:     "Grade correction",
+  quarantine:"Quarantine (hold stock)",
+  write_off: "Write off (zero stock)",
+}
+const ADJ_REASON_LABELS: Record<string, string> = {
+  counting_error:         "Counting error",
+  unrecorded_consumption: "Unrecorded consumption",
+  unrecorded_receipt:     "Unrecorded receipt",
+  damage_write_off:       "Damage / write-off",
+  theft_loss:             "Theft / loss",
+  system_error:           "System error",
+  weight_reweigh:         "Weight reweigh",
+  location_move:          "Location move",
+  grade_correction:       "Grade correction",
+  quarantine_hold:        "Quarantine hold",
+  quarantine_release:     "Quarantine release",
+  write_off:              "Write off",
+}
+
+// Inline batch search for adjustments (searches all batches, not per stock code)
+function AdjBatchSearch({ company, onPick }: { company: string; onPick: (b: StockBatch) => void }) {
+  const [q, setQ] = useState("")
+  const [results, setResults] = useState<StockBatch[]>([])
+  const [open, setOpen] = useState(false)
+  const dq = useDebounce(q, 300)
+  useEffect(() => {
+    if (!dq.trim()) { setResults([]); return }
+    api.batches.list(company, { search: dq.trim() }).then(r => { setResults(r.slice(0, 15)) }).catch(() => {})
+  }, [company, dq])
+  return (
+    <span className="picker-wrap" style={{ display: "block", maxWidth: 420 }}>
+      <input value={q} onChange={e => { setQ(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Search by batch no, heat, grade or stock code…" style={{ width: "100%" }} />
+      {open && results.length > 0 && (
+        <div className="picker-menu" style={{ minWidth: 520 }}>
+          {results.map(b => (
+            <div key={b.id} className="picker-item" onMouseDown={() => { onPick(b); setQ(""); setOpen(false) }}>
+              <code style={{ minWidth: "8em" }}>{b.batch_no}</code>
+              <span style={{ minWidth: "7em", color: "var(--color-text-muted)" }}>{b.stock_account_code}</span>
+              <span style={{ minWidth: "4em" }}>{b.grade}</span>
+              <span style={{ minWidth: "7em" }}>{b.qty_available} {b.unit} free</span>
+              <span>{b.warehouse || "—"}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </span>
+  )
+}
 
 export function StockAdjustmentsView({ company }: { company: string }) {
-  const [adjustments, setAdjustments] = useState<StockAdjustment[] | null>(null)
-  const [filterBatch, setFilterBatch] = useState("")
-  const [loadErr, setLoadErr] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-
-  // Form state
-  const [batchId, setBatchId] = useState("")
+  const [batch, setBatch] = useState<StockBatch | null>(null)
   const [adjType, setAdjType] = useState("quantity")
   const [reasonCode, setReasonCode] = useState("counting_error")
   const [reasonNotes, setReasonNotes] = useState("")
-  const [oldValuesJson, setOldValuesJson] = useState("{}")
-  const [newValuesJson, setNewValuesJson] = useState("{}")
+  const [newQty, setNewQty] = useState("")
+  const [newLocation, setNewLocation] = useState("")
+  const [newGrade, setNewGrade] = useState("")
+  const [newWeight, setNewWeight] = useState("")
   const [formErr, setFormErr] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  const load = useCallback(async (batch?: string) => {
-    setLoading(true)
-    setLoadErr(null)
-    try {
-      const data = await api.stockAdjustments.list(company, batch || undefined)
-      setAdjustments(data)
-    } catch (e) {
-      setLoadErr(String(e))
-    } finally {
-      setLoading(false)
-    }
+  const [adjustments, setAdjustments] = useState<StockAdjustment[] | null>(null)
+  const [filterBatch, setFilterBatch] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [loadErr, setLoadErr] = useState<string | null>(null)
+
+  // Pre-fill contextual field when batch or type changes
+  useEffect(() => {
+    if (!batch) return
+    if (adjType === "quantity") setNewQty(String(batch.qty_available))
+    if (adjType === "location") setNewLocation(batch.warehouse ?? "")
+    if (adjType === "grade")    setNewGrade(batch.grade ?? "")
+    if (adjType === "weight")   setNewWeight(String(batch.weight_actual_kg ?? batch.weight_theoretical_kg ?? ""))
+  }, [batch, adjType])
+
+  const load = useCallback(async (batchFilter?: string) => {
+    setLoading(true); setLoadErr(null)
+    try { setAdjustments(await api.stockAdjustments.list(company, batchFilter || undefined)) }
+    catch (e) { setLoadErr(String(e)) }
+    finally { setLoading(false) }
   }, [company])
 
   useEffect(() => { load() }, [load])
 
-  async function handleCreate(e: React.FormEvent) {
+  function pickBatch(b: StockBatch) {
+    setBatch(b); setFormErr(null); setSuccess(null)
+  }
+  function clearBatch() { setBatch(null); setFormErr(null); setSuccess(null) }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!batch) return
     setFormErr(null)
-    let oldV: Record<string, unknown>, newV: Record<string, unknown>
-    try { oldV = JSON.parse(oldValuesJson) } catch { setFormErr("Old values: invalid JSON"); return }
-    try { newV = JSON.parse(newValuesJson) } catch { setFormErr("New values: invalid JSON"); return }
+    let oldV: Record<string, unknown> = {}
+    let newV: Record<string, unknown> = {}
+    if (adjType === "quantity") {
+      const nq = parseFloat(newQty)
+      if (isNaN(nq) || nq < 0) { setFormErr("Enter a valid new quantity (≥ 0)"); return }
+      oldV = { qty_available: batch.qty_available }
+      newV = { qty_available: nq }
+    } else if (adjType === "location") {
+      if (!newLocation.trim()) { setFormErr("Enter the new warehouse / location"); return }
+      oldV = { location: batch.warehouse }
+      newV = { location: newLocation.trim() }
+    } else if (adjType === "grade") {
+      if (!newGrade.trim()) { setFormErr("Enter the corrected grade"); return }
+      oldV = { grade: batch.grade }
+      newV = { grade: newGrade.trim() }
+    } else if (adjType === "weight") {
+      const nw = parseFloat(newWeight)
+      if (isNaN(nw) || nw < 0) { setFormErr("Enter a valid weight (≥ 0)"); return }
+      oldV = { weight_kg: batch.weight_actual_kg ?? batch.weight_theoretical_kg }
+      newV = { weight_kg: nw }
+    } else if (adjType === "quarantine") {
+      oldV = { status: batch.status }
+      newV = { status: "quarantine" }
+    } else if (adjType === "write_off") {
+      oldV = { qty_available: batch.qty_available, status: batch.status }
+      newV = { qty_available: 0, status: "written_off" }
+    }
     setSubmitting(true)
     try {
       await api.stockAdjustments.create(company, {
-        batch_id: batchId,
+        batch_id: batch.batch_no,
         adjustment_type: adjType,
         old_values: oldV,
         new_values: newV,
         reason_code: reasonCode,
         reason_notes: reasonNotes || undefined,
       })
-      setBatchId(""); setReasonNotes(""); setOldValuesJson("{}"); setNewValuesJson("{}")
+      setSuccess(`Adjustment posted for ${batch.batch_no}`)
+      setBatch(null); setReasonNotes(""); setAdjType("quantity")
       await load(filterBatch)
-    } catch (e) {
-      setFormErr(String(e))
-    } finally {
-      setSubmitting(false)
-    }
+    } catch (e) { setFormErr(String(e)) }
+    finally { setSubmitting(false) }
   }
 
   async function handleReverse(adj: StockAdjustment) {
-    if (!confirm(`Reverse adjustment #${adj.id}?`)) return
-    try {
-      await api.stockAdjustments.reverse(company, adj.id)
-      await load(filterBatch)
-    } catch (e) {
-      alert(String(e))
-    }
+    if (!confirm(`Reverse adjustment #${adj.id}? This will undo the stock change.`)) return
+    try { await api.stockAdjustments.reverse(company, adj.id); await load(filterBatch) }
+    catch (e) { alert(String(e)) }
   }
 
   return (
     <Shell loading={loading} error={loadErr}>
-      <div className="page-header">
-        <h2>Stock Adjustments</h2>
-      </div>
+      <Toolbar title="Stock Adjustments" />
+      <p style={{ color: "var(--color-text-muted,#888)", marginBottom: "1.5rem", maxWidth: 640 }}>
+        Use this screen to correct stock quantities, warehouse locations or grades, or to place a batch on
+        quarantine hold / write it off. Every adjustment is recorded in the audit trail and can be reversed.
+      </p>
 
-      {/* New Adjustment form */}
-      <div className="form-box" style={{ marginBottom: "1.5rem" }}>
-        <h3 style={{ marginBottom: "0.5rem" }}>New Adjustment</h3>
-        <form onSubmit={handleCreate} style={{ display: "grid", gap: "0.75rem", maxWidth: 640 }}>
-          <label>
-            Batch ID / Batch No
-            <input value={batchId} onChange={e => setBatchId(e.target.value)} required placeholder="e.g. B-00042" />
-          </label>
-          <label>
-            Adjustment Type
-            <select value={adjType} onChange={e => setAdjType(e.target.value)}>
-              {ADJUSTMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+      <div className="form-box" style={{ marginBottom: "2rem", maxWidth: 680 }}>
+        <h3 style={{ marginBottom: "1rem" }}>New Adjustment</h3>
+        <form onSubmit={handleSubmit}>
+          {/* Step 1: batch */}
+          <div className="form-row">
+            <label>Batch</label>
+            {batch
+              ? <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                  <strong>{batch.batch_no}</strong>
+                  <span style={{ color: "var(--color-text-muted,#888)" }}>{batch.stock_account_code} · {batch.grade} · {batch.qty_available} {batch.unit} · {batch.warehouse ?? "—"}</span>
+                  <Badge value={batch.status} />
+                  <button type="button" onClick={clearBatch} style={{ fontSize: "0.8rem" }}>✕ change</button>
+                </div>
+              : <AdjBatchSearch company={company} onPick={pickBatch} />
+            }
+          </div>
+
+          {/* Step 2: type */}
+          <div className="form-row">
+            <label>Type</label>
+            <select value={adjType} onChange={e => { setAdjType(e.target.value); setFormErr(null) }} style={{ maxWidth: 280 }}>
+              {Object.entries(ADJ_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
-          </label>
-          <label>
-            Reason Code
-            <select value={reasonCode} onChange={e => setReasonCode(e.target.value)}>
-              {REASON_CODES.map(c => <option key={c} value={c}>{c}</option>)}
+          </div>
+
+          {/* Step 3: contextual value */}
+          {batch && adjType === "quantity" && (
+            <div className="form-row">
+              <label>New quantity</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {batch.qty_available} {batch.unit}</span>
+                <span>→</span>
+                <input type="number" min="0" step="any" value={newQty} onChange={e => setNewQty(e.target.value)} style={{ width: 100 }} required />
+                <span>{batch.unit}</span>
+              </div>
+            </div>
+          )}
+          {batch && adjType === "location" && (
+            <div className="form-row">
+              <label>New location</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {batch.warehouse ?? "—"}</span>
+                <span>→</span>
+                <input value={newLocation} onChange={e => setNewLocation(e.target.value)} placeholder="Bay / rack / bin" required />
+              </div>
+            </div>
+          )}
+          {batch && adjType === "grade" && (
+            <div className="form-row">
+              <label>Corrected grade</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {batch.grade ?? "—"}</span>
+                <span>→</span>
+                <input value={newGrade} onChange={e => setNewGrade(e.target.value)} placeholder="e.g. 316L" required />
+              </div>
+            </div>
+          )}
+          {batch && adjType === "weight" && (
+            <div className="form-row">
+              <label>New weight (kg)</label>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {batch.weight_actual_kg ?? batch.weight_theoretical_kg ?? "—"} kg</span>
+                <span>→</span>
+                <input type="number" min="0" step="any" value={newWeight} onChange={e => setNewWeight(e.target.value)} style={{ width: 100 }} required />
+                <span>kg</span>
+              </div>
+            </div>
+          )}
+          {batch && adjType === "quarantine" && (
+            <div className="form-row">
+              <label></label>
+              <p style={{ color: "var(--color-warn,#a06000)", margin: 0 }}>
+                Batch {batch.batch_no} will be placed on quarantine hold and cannot be despatched until released.
+              </p>
+            </div>
+          )}
+          {batch && adjType === "write_off" && (
+            <div className="form-row">
+              <label></label>
+              <p style={{ color: "var(--color-danger,#c00)", margin: 0 }}>
+                Batch {batch.batch_no} will be written off — quantity zeroed, status set to written off.
+                Reverse this adjustment if it was made in error.
+              </p>
+            </div>
+          )}
+
+          {/* Step 4: reason */}
+          <div className="form-row">
+            <label>Reason</label>
+            <select value={reasonCode} onChange={e => setReasonCode(e.target.value)} style={{ maxWidth: 280 }}>
+              {Object.entries(ADJ_REASON_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
-          </label>
-          <label>
-            Reason Notes
-            <textarea value={reasonNotes} onChange={e => setReasonNotes(e.target.value)} rows={2} />
-          </label>
-          <label>
-            Old Values (JSON)
-            <textarea value={oldValuesJson} onChange={e => setOldValuesJson(e.target.value)} rows={3} style={{ fontFamily: "monospace" }} />
-          </label>
-          <label>
-            New Values (JSON)
-            <textarea value={newValuesJson} onChange={e => setNewValuesJson(e.target.value)} rows={3} style={{ fontFamily: "monospace" }} />
-          </label>
+          </div>
+          <div className="form-row">
+            <label>Notes</label>
+            <textarea value={reasonNotes} onChange={e => setReasonNotes(e.target.value)} rows={2}
+              placeholder="Optional — add detail here" style={{ maxWidth: 420 }} />
+          </div>
+
           {formErr && <p className="err-msg">{formErr}</p>}
-          <div><button type="submit" disabled={submitting}>{submitting ? "Saving…" : "Create Adjustment"}</button></div>
+          {success && <p style={{ color: "var(--color-pass,#1a7f3c)" }}>{success}</p>}
+
+          <div className="form-row">
+            <label></label>
+            <button type="submit" className="action-btn" disabled={submitting || !batch}>
+              {submitting ? "Saving…" : "Post adjustment"}
+            </button>
+          </div>
         </form>
       </div>
 
-      {/* Filter + list */}
+      {/* Adjustment history */}
+      <h3 style={{ marginBottom: "0.5rem" }}>Adjustment history</h3>
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "1rem" }}>
-        <input
-          placeholder="Filter by batch ID…"
-          value={filterBatch}
-          onChange={e => setFilterBatch(e.target.value)}
-          style={{ maxWidth: 240 }}
-        />
+        <input placeholder="Filter by batch…" value={filterBatch}
+          onChange={e => setFilterBatch(e.target.value)} style={{ maxWidth: 200 }} />
         <button onClick={() => load(filterBatch)}>Filter</button>
         {filterBatch && <button onClick={() => { setFilterBatch(""); load() }}>Clear</button>}
       </div>
-
       {adjustments !== null && adjustments.length === 0 && <p className="state-msg">No adjustments found.</p>}
       {adjustments !== null && adjustments.length > 0 && (
         <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Batch</th>
-              <th>Type</th>
-              <th>Reason</th>
-              <th>Notes</th>
-              <th>By</th>
-              <th>Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th>#</th><th>Batch</th><th>Type</th><th>Change</th><th>Reason</th><th>Notes</th><th>By</th><th>Date</th><th></th>
+          </tr></thead>
           <tbody>
             {adjustments.map(adj => (
-              <tr key={adj.id} style={adj.reversal_of_adjustment_id !== null ? { opacity: 0.6 } : undefined}>
+              <tr key={adj.id} style={adj.reversal_of_adjustment_id !== null ? { opacity: 0.55 } : undefined}>
                 <td>{adj.id}</td>
-                <td>{adj.batch_id}</td>
-                <td>{adj.adjustment_type}</td>
-                <td>{adj.reason_code}</td>
+                <td><a href={`#/${company}/batches/${encodeURIComponent(adj.batch_id)}`}>{adj.batch_id}</a></td>
+                <td>{ADJ_TYPE_LABELS[adj.adjustment_type] ?? adj.adjustment_type}</td>
+                <td style={{ fontSize: "0.8rem", color: "var(--color-text-muted,#888)" }}>
+                  {adj.old_values && adj.new_values
+                    ? Object.keys(adj.new_values).map(k =>
+                        `${k}: ${(adj.old_values as Record<string, unknown>)[k]} → ${(adj.new_values as Record<string, unknown>)[k]}`
+                      ).join(", ")
+                    : "—"}
+                </td>
+                <td>{ADJ_REASON_LABELS[adj.reason_code] ?? adj.reason_code}</td>
                 <td>{adj.reason_notes ?? "—"}</td>
                 <td>{adj.requested_by ?? "—"}</td>
-                <td>{adj.posted_at ? new Date(adj.posted_at).toLocaleString() : "—"}</td>
+                <td>{fmtDate(adj.posted_at)}</td>
                 <td>
                   {adj.reversal_of_adjustment_id !== null
-                    ? <span style={{ color: "var(--text-muted)" }}>Reversed</span>
-                    : <button onClick={() => handleReverse(adj)}>Reverse</button>
-                  }
+                    ? <span style={{ color: "var(--color-text-muted,#888)", fontSize: "0.8rem" }}>Reversal</span>
+                    : <button onClick={() => handleReverse(adj)}>Reverse</button>}
                 </td>
               </tr>
             ))}
