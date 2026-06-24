@@ -1,6 +1,7 @@
 import { supabase } from "./supabase"
 
-const BASE       = import.meta.env.VITE_API_URL   ?? "http://localhost:8000"
+const _rawBase   = import.meta.env.VITE_API_URL   ?? "http://localhost:8000"
+const BASE       = /^http:\/\/localhost/.test(_rawBase) ? _rawBase : _rawBase.replace(/^http:/, "https:")
 const FALLBACK   = import.meta.env.VITE_API_TOKEN ?? ""  // dev fallback key
 
 async function authHeader(): Promise<Record<string, string>> {
