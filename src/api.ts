@@ -945,8 +945,8 @@ export const api = {
     extract: async (co: string, files: File[]) => {
       const headers = await authHeader()
       const fd = new FormData(); files.forEach(f => fd.append("files", f))
-      const r = await fetch(`${v1(co)}/customers/extract`, { method: "POST", headers, body: fd })
-      if (!r.ok) throw new Error(await r.text())
+      const r = await fetch(`${BASE}${v1(co)}/customers/extract`, { method: "POST", headers, body: fd })
+      if (!r.ok) { const d = await r.json().catch(() => null); throw new Error(d?.detail ?? `${r.status}`) }
       return r.json()
     },
   },
@@ -984,8 +984,8 @@ export const api = {
     extract: async (co: string, files: File[]) => {
       const headers = await authHeader()
       const fd = new FormData(); files.forEach(f => fd.append("files", f))
-      const r = await fetch(`${v1(co)}/stock-items/extract`, { method: "POST", headers, body: fd })
-      if (!r.ok) throw new Error(await r.text())
+      const r = await fetch(`${BASE}${v1(co)}/stock-items/extract`, { method: "POST", headers, body: fd })
+      if (!r.ok) { const d = await r.json().catch(() => null); throw new Error(d?.detail ?? `${r.status}`) }
       return r.json()
     },
     resolve: (co: string, description: string) =>
