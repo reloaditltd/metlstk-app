@@ -3195,12 +3195,13 @@ export function StockBatchList({ company }: { company: string }) {
           </div>
         </div>
       )}
-      <table>
+      <div style={{ overflowX: "auto" }}>
+      <table style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
         <thead><tr>
-          <th>Batch No</th><th>GRN</th><th>Stock Code</th><th>Grade</th><th>Spec</th>
-          <th>Heat No</th><th>Cert Ref</th><th>Qty Rec'd</th><th>On Orders</th><th>Qty Free</th>
-          <th>Unit</th><th>Warehouse</th><th>Conform</th><th>Status</th><th>Date</th>
-          <th className="r">Cost Base</th><th className="r">Alloy Surch.</th><th className="r">Cost Total</th><th></th>
+          <th>Batch</th><th>GRN</th><th>Code</th><th>Grade</th><th>Spec</th>
+          <th>Heat No</th><th>Cert Ref</th><th>Qty In</th><th>On Ord</th><th>Free</th>
+          <th>Unit</th><th>Whse</th><th>Conf</th><th>Status</th><th>Date</th>
+          <th className="r">Base £</th><th className="r">Alloy £</th><th className="r">Total £</th><th></th>
         </tr></thead>
         <tbody>
           {rows.map(r => {
@@ -3238,6 +3239,7 @@ export function StockBatchList({ company }: { company: string }) {
           )})}
         </tbody>
       </table>
+      </div>
     </Shell>
   )
 }
