@@ -1004,7 +1004,9 @@ export const api = {
       return fetch(`${BASE}${v1(co)}/grn/extract`, { method: "POST", headers, body: form }).then(async r => {
         if (!r.ok) { const d = await r.json().catch(() => null); throw new Error(d?.detail ?? `${r.status}`) }
         type POData = { order_no: string; supplier_account: string; delivery_date_serial: number | null; lines: { stock_account_code: string; description: string; qty_ordered: number; qty_received: number; status: string }[] }
-        return r.json() as Promise<{ extracted: Record<string, unknown>; ai_raw_text: string; cert_paths: string[]; conformance: ConformanceRow[]; suggested_po: POData | null; po_candidates: POData[]; duplicate_dn: boolean }>
+        const d = await r.json() as { error?: string; extracted: Record<string, unknown>; ai_raw_text: string; cert_paths: string[]; conformance: ConformanceRow[]; suggested_po: POData | null; po_candidates: POData[]; duplicate_dn: boolean }
+        if (d.error) throw new Error(d.error)
+        return d
       })
     },
     create: (co: string, body: object) =>
