@@ -1722,6 +1722,7 @@ function AllocationSection({ company, order }: { company: string; order: SalesOr
         <div style={{ marginBottom: "0.75rem" }}>
           <h4 style={{ margin: "0 0 0.3rem" }}>Available batches — {selectedCode}</h4>
           {available.length === 0 ? <p className="state-msg">No available batches for this item.</p> : (
+            <div className="table-wrap">
             <table>
               <thead><tr><th>Batch</th><th>Heat</th><th>Cert</th><th>Grade</th>
                 <th className="r">Available</th><th>Location</th><th></th></tr></thead>
@@ -1735,10 +1736,12 @@ function AllocationSection({ company, order }: { company: string; order: SalesOr
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}
       {allocs.length > 0 && (
+        <div className="table-wrap">
         <table>
           <thead><tr><th>Line</th><th>Batch</th><th>Heat</th><th>Grade</th><th className="r">Qty</th><th>Cert</th><th>Status</th><th>Type</th><th></th></tr></thead>
           <tbody>
@@ -1778,6 +1781,7 @@ function AllocationSection({ company, order }: { company: string; order: SalesOr
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   )
@@ -2949,6 +2953,7 @@ export function GRNList({ company }: { company: string }) {
         <SearchBar value={search} onChange={setSearch} />
         <button className="action-btn" onClick={() => location.hash = `#/${company}/grn/new`}>+ New GRN</button>
       </Toolbar>
+      <div className="table-wrap">
       <table>
         <thead><tr>
           <th>GRN No</th><th>Supplier</th><th>Stock Code</th><th>Heat No</th><th>Grade</th>
@@ -2975,6 +2980,7 @@ export function GRNList({ company }: { company: string }) {
           ))}
         </tbody>
       </table>
+      </div>
     </Shell>
   )
 }
@@ -3232,7 +3238,7 @@ export function StockBatchList({ company }: { company: string }) {
               <td style={{ color: r.qty_allocated > 0 ? "var(--color-warn, #a06000)" : undefined }}>{r.qty_allocated > 0 ? fmtQty(r.qty_allocated) : "—"}</td>
               <td style={{ color: free <= 0 ? "var(--color-danger, #c00)" : undefined, fontWeight: r.qty_allocated > 0 ? 600 : undefined }}>{fmtQty(free)}</td>
               <td>{r.unit}</td>
-              <td>{r.warehouse}</td>
+              <td>{r.warehouse || "—"}</td>
               <td>{r.conformance_pass === true
                 ? <span className="badge badge--pass">PASS</span>
                 : r.conformance_pass === false
@@ -3645,6 +3651,7 @@ export function MTCList({ company }: { company: string }) {
           Unmatched only (no linked batch)
         </label>
       </Toolbar>
+      <div className="table-wrap">
       <table>
         <thead><tr>
           <th>Cert Ref</th><th>Heat No</th><th>Grade</th><th>Standard</th>
@@ -3671,6 +3678,7 @@ export function MTCList({ company }: { company: string }) {
           {(!rows || rows.length === 0) && <tr><td colSpan={8} className="state-msg">No certificates.</td></tr>}
         </tbody>
       </table>
+      </div>
     </Shell>
   )
 }

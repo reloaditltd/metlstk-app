@@ -451,6 +451,11 @@ export type StockBatch = {
   conformance_pass: boolean | null
   status: string
   created_at: string
+  // cost fields added by migration 064
+  cost_base: number | null
+  cost_alloy_surcharge: number | null
+  cost_total: number | null
+  cost_basis: string | null
 }
 
 export type BatchGenealogyLink = {
