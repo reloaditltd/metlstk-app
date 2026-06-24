@@ -226,7 +226,7 @@ header nav a.active { color: #fff; font-weight: 600; border-bottom-color: var(--
 }
 .signout-btn:hover { color: #fff; border-color: rgba(255,255,255,.45); }
 
-main { padding: 2rem 1.75rem 1.75rem; flex: 1; max-width: 1600px; width: 100%; margin: 0 auto; }
+main { padding: 2rem 1.75rem 1.75rem; flex: 1; max-width: 1600px; width: 100%; margin: 0 auto; overflow-x: auto; }
 
 /* ── Page toolbar ── */
 .toolbar-row {
