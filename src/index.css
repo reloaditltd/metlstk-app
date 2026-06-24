@@ -315,11 +315,25 @@ code { font-family: var(--mono); font-size: .78rem; background: #F1F5F9; padding
 /* ── Dashboard panels grid ── */
 .dash-panels {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
-.dash-panels .detail-card { min-height: 5.5rem; display: flex; flex-direction: column; justify-content: center; }
+/* Force 9 columns on wide desktop so 17 panels fill 9+8 (no lone orphan row) */
+@media (min-width: 1280px) {
+  .dash-panels { grid-template-columns: repeat(9, 1fr); }
+}
+/* <a>-wrapped panels must fill their grid cell so heights match unwrapped cards */
+.dash-panels > a { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.dash-panels > a > .detail-card { flex: 1; }
+.dash-panels .detail-card {
+  min-height: 5.5rem; display: flex; flex-direction: column; justify-content: center;
+}
+/* Value text (large number/currency) must not overflow the card */
+.dash-panels .detail-card > :first-child {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 1.6rem;
+}
 
 /* ── Dashboard collapsible sections ── */
 .dash-section { margin-bottom: 1.25rem; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
