@@ -113,6 +113,12 @@ function useData<T>(fn: () => Promise<T>, deps: unknown[]) {
 const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" })
 const fmtGbp = (n: number | null | undefined) => (n != null ? gbp.format(n) : "—")
 const fmtKg = (v: number | null | undefined) => v == null ? "—" : `${Number(v).toFixed(1)} kg`
+const fmtQty = (v: number | string | null | undefined) => {
+  if (v == null || v === "") return "—"
+  const n = Number(v)
+  if (isNaN(n)) return String(v)
+  return n % 1 === 0 ? String(Math.round(n)) : n.toFixed(1)
+}
 const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString("en-GB").replace(/\//g, "-") : "—"
 function downloadCsv(filename: string, headers: string[], rows: (string | number | null | undefined)[][]) {
@@ -1039,7 +1045,7 @@ function StockItemBatches({ company, code }: { company: string; code: string }) 
                 <tr key={b.batch_no}>
                   <td><a href={`#/${company}/batches/${b.batch_no}`}>{b.batch_no}</a></td>
                   <td>{b.heat_no || "—"}</td><td>{b.cert_ref || "—"}</td><td>{b.grade || "—"}</td>
-                  <td className="r">{b.qty_available} {b.unit}</td>
+                  <td className="r">{fmtQty(b.qty_available)} {b.unit}</td>
                   <td>{b.grn_no ? <a href={`#/${company}/grn/${b.grn_no}`}>{b.grn_no}</a> : "—"}</td>
                   <td>{b.supplier_account
                     ? <a href={`#/${company}/suppliers/${encodeURIComponent(b.supplier_account)}`}>{b.supplier_account}</a>
@@ -3216,9 +3222,9 @@ export function StockBatchList({ company }: { company: string }) {
               <td>{r.spec}</td>
               <td>{r.heat_no}</td>
               <td>{r.cert_ref}</td>
-              <td>{r.qty_received}</td>
-              <td style={{ color: r.qty_allocated > 0 ? "var(--color-warn, #a06000)" : undefined }}>{r.qty_allocated > 0 ? r.qty_allocated : "—"}</td>
-              <td style={{ color: free <= 0 ? "var(--color-danger, #c00)" : undefined, fontWeight: r.qty_allocated > 0 ? 600 : undefined }}>{free}</td>
+              <td>{fmtQty(r.qty_received)}</td>
+              <td style={{ color: r.qty_allocated > 0 ? "var(--color-warn, #a06000)" : undefined }}>{r.qty_allocated > 0 ? fmtQty(r.qty_allocated) : "—"}</td>
+              <td style={{ color: free <= 0 ? "var(--color-danger, #c00)" : undefined, fontWeight: r.qty_allocated > 0 ? 600 : undefined }}>{fmtQty(free)}</td>
               <td>{r.unit}</td>
               <td>{r.warehouse}</td>
               <td>{r.conformance_pass === true
@@ -3463,8 +3469,8 @@ export function GRNNew({ company, initialPO }: { company: string; initialPO?: st
                 <tr key={i}>
                   <td><code>{l.stock_account_code}</code></td>
                   <td>{l.description}</td>
-                  <td className="r">{l.qty_ordered}</td>
-                  <td className="r">{l.qty_received}</td>
+                  <td className="r">{fmtQty(l.qty_ordered)}</td>
+                  <td className="r">{fmtQty(l.qty_received)}</td>
                   <td><Badge value={l.status} /></td>
                 </tr>
               ))}
@@ -3928,7 +3934,7 @@ export function RemnantRegister({ company }: { company: string }) {
               <td>{r.heat_no}</td>
               <td>{r.grade ?? "—"}</td>
               <td>{r.length_mm != null ? r.length_mm.toFixed(0) : "—"}</td>
-              <td>{r.qty_available}</td>
+              <td>{fmtQty(r.qty_available)}</td>
               <td>{fmtKg(r.weight_theoretical_kg)}</td>
               <td>{r.warehouse ?? "—"}</td>
             </tr>
@@ -3996,8 +4002,8 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
             <div className="detail-card">
               <h3>Quantity / weight</h3>
               <dl>
-                <dt>Received</dt><dd>{b.qty_received} {b.unit}</dd>
-                <dt>Available</dt><dd>{b.qty_available} {b.unit}</dd>
+                <dt>Received</dt><dd>{fmtQty(b.qty_received)} {b.unit}</dd>
+                <dt>Available</dt><dd>{fmtQty(b.qty_available)} {b.unit}</dd>
                 <dt>Length</dt><dd>{b.length_mm != null ? `${b.length_mm} mm` : "—"}</dd>
                 <dt>Theoretical</dt><dd>{fmtKg(b.weight_theoretical_kg)}</dd>
                 <dt>Actual</dt><dd>{fmtKg(b.weight_actual_kg)}</dd>
@@ -4026,8 +4032,8 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
                 {b.country_of_origin && <>
                   <dt>Country</dt><dd>{b.country_of_origin}</dd>
                 </>}
-                <dt>On orders</dt><dd>{b.qty_allocated > 0 ? `${b.qty_allocated} ${b.unit}` : "—"}</dd>
-                <dt>Free qty</dt><dd>{(b.qty_available - (b.qty_allocated ?? 0))} {b.unit}</dd>
+                <dt>On orders</dt><dd>{b.qty_allocated > 0 ? `${fmtQty(b.qty_allocated)} ${b.unit}` : "—"}</dd>
+                <dt>Free qty</dt><dd>{fmtQty(b.qty_available - (b.qty_allocated ?? 0))} {b.unit}</dd>
               </dl>
               <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.4rem" }}>
                 <input placeholder="Transfer to warehouse" value={wh} onChange={e => setWh(e.target.value)} />
