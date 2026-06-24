@@ -347,10 +347,18 @@ main { padding: 2rem 1.75rem 1.75rem; flex: 1; max-width: 1600px; width: 100%; m
 /* ── Table ── */
 table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
 /* Wrap wide tables in .table-wrap — the table uses natural column widths; the wrapper scrolls */
-.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
-.table-wrap::-webkit-scrollbar { height: 4px; }
+.table-wrap {
+  overflow-x: auto; overflow-y: auto;
+  max-height: 72vh;          /* keeps horizontal scrollbar in view; avoids off-screen scroll handle */
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.table-wrap::-webkit-scrollbar { height: 6px; width: 6px; }
 .table-wrap::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
 .table-wrap > table { width: auto; min-width: 100%; }
+/* With overflow-y:auto on the container, sticky top is relative to the container, not the
+   viewport — so top:0 pins headers to the top of the scroll box, not the page nav */
+.table-wrap th { position: sticky; top: 0; z-index: 5; background: var(--surface); }
 th {
   position: sticky; top: 58px; z-index: 10;
   background: var(--bg); text-align: left;
@@ -692,6 +700,15 @@ td:has(.tip) { overflow: visible; }
     min-width: calc(100vw - 2rem) !important;
   }
   /* ── Card table layout: each row becomes a stacked card ── */
+  /* .table-wrap tables keep their horizontal scroll and don't convert to cards */
+  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { overflow-x: visible !important; width: auto !important; font-size: .75rem; }
+  .table-wrap thead { display: table-header-group !important; }
+  .table-wrap tbody { display: table-row-group !important; }
+  .table-wrap tbody tr { display: table-row !important; border: none; border-radius: 0; margin-bottom: 0; box-shadow: none; }
+  .table-wrap td { display: table-cell !important; padding: .35rem .55rem !important; border-bottom: 1px solid var(--border) !important; max-width: none !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+  .table-wrap td::before { display: none; }
+  /* narrow tables without .table-wrap use card layout */
   table { overflow-x: hidden !important; width: 100% !important; }
   thead { display: none; }
   tbody { display: block; width: 100%; }
