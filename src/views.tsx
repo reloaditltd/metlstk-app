@@ -112,6 +112,7 @@ function useData<T>(fn: () => Promise<T>, deps: unknown[]) {
 
 const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" })
 const fmtGbp = (n: number | null | undefined) => (n != null ? gbp.format(n) : "—")
+const fmtKg = (v: number | null | undefined) => v == null ? "—" : `${Number(v).toFixed(1)} kg`
 const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString("en-GB").replace(/\//g, "-") : "—"
 function downloadCsv(filename: string, headers: string[], rows: (string | number | null | undefined)[][]) {
@@ -1897,8 +1898,8 @@ export function InvoiceDetail({ company, id }: { company: string; id: string }) 
               <h3>Catch-weight / source</h3>
               <dl>
                 <dt>Weight basis</dt><dd>{inv.weight_basis || "—"}</dd>
-                <dt>Theoretical</dt><dd>{inv.weight_theoretical_kg ? `${inv.weight_theoretical_kg} kg` : "—"}</dd>
-                <dt>Actual</dt><dd>{inv.weight_actual_kg ? `${inv.weight_actual_kg} kg` : "—"}</dd>
+                <dt>Theoretical</dt><dd>{fmtKg(inv.weight_theoretical_kg)}</dd>
+                <dt>Actual</dt><dd>{fmtKg(inv.weight_actual_kg)}</dd>
                 <dt>Variance</dt><dd>{inv.weight_variance_flag
                   ? <span className="badge badge--fail">&gt; 2%</span>
                   : <span className="badge badge--pass">within tol.</span>}</dd>
@@ -2401,7 +2402,7 @@ export function StockDetail({ company, id }: { company: string; id: string }) {
                       : "—"}</td>
                     <td>{d.sales_order_no ? <a href={`#/${company}/sales-orders/${encodeURIComponent(d.sales_order_no)}`}><code>{d.sales_order_no}</code></a> : "—"}</td>
                     <td className="r">{d.qty ?? "—"}</td>
-                    <td className="r">{d.weight_theoretical_kg ?? "—"}</td>
+                    <td className="r">{fmtKg(d.weight_theoretical_kg)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3170,7 +3171,7 @@ export function StockBatchList({ company }: { company: string }) {
             <tbody>
               {summary.map((s, i) => (
                 <tr key={i}><td>{s.grade}</td><td>{s.warehouse}</td><td>{s.batches}</td>
-                  <td>{s.qty_available ?? "—"}</td><td>{s.weight_theoretical_kg ?? "—"}</td><td>{s.weight_actual_kg ?? "—"}</td></tr>
+                  <td>{s.qty_available ?? "—"}</td><td>{fmtKg(s.weight_theoretical_kg)}</td><td>{fmtKg(s.weight_actual_kg)}</td></tr>
               ))}
               {summary.length === 0 && <tr><td colSpan={6} className="state-msg">No stock.</td></tr>}
             </tbody>
@@ -3928,7 +3929,7 @@ export function RemnantRegister({ company }: { company: string }) {
               <td>{r.grade ?? "—"}</td>
               <td>{r.length_mm != null ? r.length_mm.toFixed(0) : "—"}</td>
               <td>{r.qty_available}</td>
-              <td>{r.weight_theoretical_kg != null ? r.weight_theoretical_kg.toFixed(2) : "—"}</td>
+              <td>{fmtKg(r.weight_theoretical_kg)}</td>
               <td>{r.warehouse ?? "—"}</td>
             </tr>
           ))}
@@ -3998,8 +3999,8 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
                 <dt>Received</dt><dd>{b.qty_received} {b.unit}</dd>
                 <dt>Available</dt><dd>{b.qty_available} {b.unit}</dd>
                 <dt>Length</dt><dd>{b.length_mm != null ? `${b.length_mm} mm` : "—"}</dd>
-                <dt>Theoretical</dt><dd>{b.weight_theoretical_kg != null ? `${b.weight_theoretical_kg} kg` : "—"}</dd>
-                <dt>Actual</dt><dd>{b.weight_actual_kg != null ? `${b.weight_actual_kg} kg` : "—"}</dd>
+                <dt>Theoretical</dt><dd>{fmtKg(b.weight_theoretical_kg)}</dd>
+                <dt>Actual</dt><dd>{fmtKg(b.weight_actual_kg)}</dd>
               </dl>
             </div>
             <div className="detail-card">
@@ -4260,7 +4261,7 @@ export function QuoteNew({ company }: { company: string }) {
               <td><input style={{ width: "4em" }} value={l.thickness_mm ?? ""} onChange={e => setLine(i, { thickness_mm: e.target.value ? Number(e.target.value) : null })} /></td>
               <td><input style={{ width: "4em" }} value={l.diameter_mm ?? ""} onChange={e => setLine(i, { diameter_mm: e.target.value ? Number(e.target.value) : null })} /></td>
               <td><input style={{ width: "4em" }} value={l.qty ?? ""} onChange={e => setLine(i, { qty: e.target.value ? Number(e.target.value) : null })} /></td>
-              <td>{l.weight_theoretical_kg ?? "—"}</td>
+              <td>{fmtKg(l.weight_theoretical_kg)}</td>
               <td><input style={{ width: "5em" }} value={l.unit_price ?? ""} onChange={e => setLine(i, { unit_price: e.target.value })} /></td>
               <td><input style={{ width: "3.5em" }} value={l.required_cert_type ?? ""} onChange={e => setLine(i, { required_cert_type: e.target.value })} /></td>
             </tr>
@@ -4355,7 +4356,7 @@ export function QuoteDetail({ company, id }: { company: string; id: string }) {
                     <td>{l.product_form || "—"}</td>
                     <td>{[l.length_mm, l.width_mm, l.thickness_mm, l.diameter_mm].filter(Boolean).join(" × ") || "—"}</td>
                     <td className="r">{l.qty ?? "—"}</td>
-                    <td className="r">{l.weight_theoretical_kg ?? "—"}</td>
+                    <td className="r">{fmtKg(l.weight_theoretical_kg)}</td>
                     <td className="r">{fmtGbp(l.unit_price_gbp)}</td>
                     <td className="r">{fmtGbp(l.line_total_gbp)}</td>
                     <td>{l.required_cert_type || "—"}</td>
@@ -4872,10 +4873,10 @@ export function DeliveryNoteDetail({ company, id }: { company: string; id: strin
             <div className="detail-card">
               <h3>Weighbridge</h3>
               <dl>
-                <dt>Gross</dt><dd>{d.weighbridge_gross_kg ? `${d.weighbridge_gross_kg} kg` : "—"}</dd>
-                <dt>Tare</dt><dd>{d.weighbridge_tare_kg ? `${d.weighbridge_tare_kg} kg` : "—"}</dd>
-                <dt>Net</dt><dd>{d.weighbridge_net_kg ? `${d.weighbridge_net_kg} kg` : "—"}</dd>
-                <dt>Theoretical</dt><dd>{d.weight_theoretical_kg ? `${d.weight_theoretical_kg} kg` : "—"}</dd>
+                <dt>Gross</dt><dd>{fmtKg(d.weighbridge_gross_kg)}</dd>
+                <dt>Tare</dt><dd>{fmtKg(d.weighbridge_tare_kg)}</dd>
+                <dt>Net</dt><dd>{fmtKg(d.weighbridge_net_kg)}</dd>
+                <dt>Theoretical</dt><dd>{fmtKg(d.weight_theoretical_kg)}</dd>
                 <dt>Slip</dt><dd>{d.weighbridge_slip_ref || "—"}</dd>
               </dl>
               {!hasPod && (
@@ -4904,7 +4905,7 @@ export function DeliveryNoteDetail({ company, id }: { company: string; id: strin
                     <td>{l.cert_ref || "—"}</td>
                     <td>{l.short_description || "—"}</td>
                     <td className="r">{l.stk_qty_out ?? "—"}</td>
-                    <td className="r">{l.weight_theoretical_kg ?? "—"}</td>
+                    <td className="r">{fmtKg(l.weight_theoretical_kg)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -8742,7 +8743,7 @@ export function StockAdjustmentsView({ company }: { company: string }) {
             {batch
               ? <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
                   <strong>{batch.batch_no}</strong>
-                  <span style={{ color: "var(--color-text-muted,#888)" }}>{batch.stock_account_code} · {batch.grade} · {batch.qty_available} {batch.unit} · {batch.warehouse ?? "—"}</span>
+                  <span style={{ color: "var(--color-text-muted,#888)" }}>{batch.stock_account_code} · {batch.grade} · {Number(batch.qty_available).toFixed(1)} {batch.unit} · {batch.warehouse ?? "—"}</span>
                   <Badge value={batch.status} />
                   <button type="button" onClick={clearBatch} style={{ fontSize: "0.8rem" }}>✕ change</button>
                 </div>
@@ -8763,7 +8764,7 @@ export function StockAdjustmentsView({ company }: { company: string }) {
             <div className="form-row">
               <label>New quantity</label>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {batch.qty_available} {batch.unit}</span>
+                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {Number(batch.qty_available).toFixed(1)} {batch.unit}</span>
                 <span>→</span>
                 <input type="number" min="0" step="any" value={newQty} onChange={e => setNewQty(e.target.value)} style={{ width: 100 }} required />
                 <span>{batch.unit}</span>
@@ -8794,7 +8795,7 @@ export function StockAdjustmentsView({ company }: { company: string }) {
             <div className="form-row">
               <label>New weight (kg)</label>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {batch.weight_actual_kg ?? batch.weight_theoretical_kg ?? "—"} kg</span>
+                <span style={{ color: "var(--color-text-muted,#888)", minWidth: 120 }}>Was: {fmtKg(batch.weight_actual_kg ?? batch.weight_theoretical_kg)}</span>
                 <span>→</span>
                 <input type="number" min="0" step="any" value={newWeight} onChange={e => setNewWeight(e.target.value)} style={{ width: 100 }} required />
                 <span>kg</span>
