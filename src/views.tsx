@@ -997,6 +997,7 @@ export function StockList({ company }: { company: string }) {
           ))}
         </div>
       )}
+      <div className="table-wrap">
       <table>
         <thead>
           <tr>
@@ -1024,6 +1025,7 @@ export function StockList({ company }: { company: string }) {
           ))}
         </tbody>
       </table>
+      </div>
       {!nlMode && data && <Pager offset={offset} count={data.length} limit={limit} onChange={setOffset} />}
     </Shell>
   )
@@ -1037,6 +1039,7 @@ function StockItemBatches({ company, code }: { company: string; code: string }) 
       <div className="detail-lines">
         <h3>Batches (with GRN)</h3>
         {data.batches.length === 0 ? <p className="state-msg">No modeled batches yet — created on goods-in.</p> : (
+          <div className="table-wrap">
           <table>
             <thead><tr><th>Batch</th><th>Heat</th><th>Cert</th><th>Grade</th><th className="r">Avail</th>
               <th>GRN</th><th>Supplier</th><th>PO</th><th>Del note</th><th>Received</th></tr></thead>
@@ -1058,6 +1061,7 @@ function StockItemBatches({ company, code }: { company: string; code: string }) 
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       {data.legacy_batches.length > 0 && (
@@ -1518,6 +1522,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
         {o.lines.length > 0 && (
           <div className="detail-lines">
             <h3>Lines</h3>
+            <div className="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -1569,6 +1574,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         {o.delivery_notes.length > 0 && (
@@ -3202,7 +3208,7 @@ export function StockBatchList({ company }: { company: string }) {
           </div>
         </div>
       )}
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-wrap">
       <table style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}>
         <thead><tr>
           <th>Batch</th><th>GRN</th><th>Code</th><th>Grade</th><th>Spec</th>
@@ -4251,6 +4257,7 @@ export function QuoteNew({ company }: { company: string }) {
         <CustomerPicker company={company} value={customer} onChange={setCustomer} />
       </div>
 
+      <div className="table-wrap">
       <table>
         <thead><tr>
           <th>Description</th><th>Grade</th><th>Form</th><th>L</th><th>W</th><th>T</th><th>Ø</th>
@@ -4275,6 +4282,7 @@ export function QuoteNew({ company }: { company: string }) {
           {lines.length === 0 && <tr><td colSpan={11} className="state-msg">Extract from a PDF, or add a line.</td></tr>}
         </tbody>
       </table>
+      </div>
       <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem" }}>
         <button onClick={addLine}>+ Add line</button>
         <button className="action-btn" disabled={busy || lines.length === 0} onClick={save}>
@@ -4347,6 +4355,7 @@ export function QuoteDetail({ company, id }: { company: string; id: string }) {
           </div>
           <div className="detail-lines">
             <h3>Lines</h3>
+            <div className="table-wrap">
             <table>
               <thead><tr>
                 <th>#</th><th>Description</th><th>Grade</th><th>Form</th><th>Dims (mm)</th>
@@ -4370,6 +4379,7 @@ export function QuoteDetail({ company, id }: { company: string; id: string }) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
@@ -5551,6 +5561,7 @@ export function StockAgeReport({ company }: { company: string }) {
       {rows && rows.length === 0 && <p className="state-msg">No available stock batches.</p>}
       {rows && rows.length > 0 && (
         <div className="detail-lines">
+          <div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -5583,6 +5594,7 @@ export function StockAgeReport({ company }: { company: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </Shell>
@@ -6743,6 +6755,7 @@ export function SalesOrderNew({ company }: { company: string }) {
               </button>
             )}
           </div>
+          <div className="table-wrap">
           <table>
             <thead><tr><th>Code</th><th>Batch</th><th>Description</th><th>Grade</th><th>Cert</th><th>Qty</th><th>Price basis</th><th>Unit £</th><th>Line notes</th><th></th></tr></thead>
             <tbody>
@@ -6853,6 +6866,7 @@ export function SalesOrderNew({ company }: { company: string }) {
               {lines.length === 0 && <tr><td colSpan={10} className="state-msg">Add a line.</td></tr>}
             </tbody>
           </table>
+          </div>
           <button onClick={addLine} style={{ marginTop: "0.5rem" }}>+ Add line</button>
         </div>
       )}
@@ -7776,6 +7790,7 @@ export function SupplierPerformanceReport({ company }: { company: string }) {
   return (
     <Shell loading={loading} error={error}>
       <Toolbar title="Supplier Performance" />
+      <div className="table-wrap">
       <table>
         <thead><tr>
           <th>Code</th><th>Name</th><th>Type</th><th>Approved</th><th>On hold</th>
@@ -7803,6 +7818,7 @@ export function SupplierPerformanceReport({ company }: { company: string }) {
           )}
         </tbody>
       </table>
+      </div>
     </Shell>
   )
 }
@@ -8152,6 +8168,7 @@ export function FxView({ company }: { company: string }) {
         )}
       </div>
 
+      <div className="table-wrap">
       <table>
         <thead>
           <tr>
@@ -8209,6 +8226,7 @@ export function FxView({ company }: { company: string }) {
           })}
         </tbody>
       </table>
+      </div>
 
       {rates && rates.length > 0 && (
         <details style={{ marginTop: "1.5rem" }}>

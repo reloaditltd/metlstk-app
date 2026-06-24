@@ -254,11 +254,13 @@ main { padding: 2rem 1.75rem 1.75rem; flex: 1; max-width: 1600px; width: 100%; m
 .search-bar input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
 .search-bar input::placeholder { color: var(--text-muted); }
 
-/* ── Table ── scrolls horizontally when content exceeds the container at any screen size */
-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
-table::-webkit-scrollbar { height: 4px; }
-table::-webkit-scrollbar-track { background: transparent; }
-table::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+/* Wrap wide tables in .table-wrap — the table uses natural column widths; the wrapper scrolls */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.table-wrap::-webkit-scrollbar { height: 4px; }
+.table-wrap::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 4px; }
+.table-wrap > table { width: auto; min-width: 100%; }
 th {
   position: sticky; top: 58px; z-index: 10;
   background: var(--bg); text-align: left;
