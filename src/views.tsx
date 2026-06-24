@@ -113,7 +113,7 @@ function useData<T>(fn: () => Promise<T>, deps: unknown[]) {
 const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" })
 const fmtGbp = (n: number | null | undefined) => (n != null ? gbp.format(n) : "—")
 const fmtDate = (d: string | null | undefined) =>
-  d ? new Date(d).toLocaleDateString("en-GB") : "—"
+  d ? new Date(d).toLocaleDateString("en-GB").replace(/\//g, "-") : "—"
 function downloadCsv(filename: string, headers: string[], rows: (string | number | null | undefined)[][]) {
   const esc = (v: string | number | null | undefined) => {
     const s = v == null ? "" : String(v)
@@ -1046,7 +1046,7 @@ function StockItemBatches({ company, code }: { company: string; code: string }) 
                   <td>{b.purchase_order_no
                     ? <a href={`#/${company}/purchase-orders/${encodeURIComponent(b.purchase_order_no)}`}>{b.purchase_order_no}</a>
                     : "—"}</td>
-                  <td>{b.delivery_note_ref || "—"}</td><td>{b.grn_date?.slice(0, 10) || "—"}</td>
+                  <td>{b.delivery_note_ref || "—"}</td><td>{fmtDate(b.grn_date)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1368,7 +1368,7 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
                 {custPayments.map(p => (
                   <tr key={p.payment_no}>
                     <td><code>{p.payment_no}</code></td>
-                    <td>{p.created_at?.slice(0, 10)}</td>
+                    <td>{fmtDate(p.created_at)}</td>
                     <td>{p.method || "—"}</td>
                     <td>{p.reference || "—"}</td>
                     <td style={{ textAlign: "right" }}>{fmtGbp(p.amount_gbp)}</td>
@@ -1948,7 +1948,7 @@ export function InvoiceDetail({ company, id }: { company: string; id: string }) 
                     <td className="r">{fmtGbp(cn.net_gbp)}</td>
                     <td className="r">{fmtGbp(cn.total_gbp)}</td>
                     <td><Badge value={cn.status ?? "—"} /></td>
-                    <td>{cn.created_at?.slice(0, 10)}</td>
+                    <td>{fmtDate(cn.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1967,7 +1967,7 @@ export function InvoiceDetail({ company, id }: { company: string; id: string }) 
                     <td>{p.method || "—"}</td>
                     <td>{p.reference || "—"}</td>
                     <td className="r">{fmtGbp(p.amount_gbp)}</td>
-                    <td>{p.created_at?.slice(0, 10)}</td>
+                    <td>{fmtDate(p.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2372,7 +2372,7 @@ export function StockDetail({ company, id }: { company: string; id: string }) {
                 {purchaseHistory.map(g => (
                   <tr key={g.grn_no}>
                     <td><a href={`#/${company}/grn/${encodeURIComponent(g.grn_no)}`}><code>{g.grn_no}</code></a></td>
-                    <td>{g.confirmed_at?.slice(0, 10) || g.created_at?.slice(0, 10) || "—"}</td>
+                    <td>{fmtDate(g.confirmed_at || g.created_at)}</td>
                     <td>{g.supplier_name || g.supplier_account || "—"}</td>
                     <td>{g.purchase_order_no ? <a href={`#/${company}/purchase-orders/${encodeURIComponent(g.purchase_order_no)}`}><code>{g.purchase_order_no}</code></a> : "—"}</td>
                     <td className="r">{g.quantity != null ? `${g.quantity} ${g.unit || ""}`.trim() : "—"}</td>
@@ -2395,7 +2395,7 @@ export function StockDetail({ company, id }: { company: string; id: string }) {
                 {despatchHistory.map(d => (
                   <tr key={d.doc_no}>
                     <td><a href={`#/${company}/delivery-notes/${encodeURIComponent(d.doc_no)}`}><code>{d.doc_no}</code></a></td>
-                    <td>{d.date?.slice(0, 10) || "—"}</td>
+                    <td>{fmtDate(d.date)}</td>
                     <td>{d.customer_account
                       ? <a href={`#/${company}/customers/${encodeURIComponent(d.customer_account)}`}>{d.customer_name || d.customer_account}</a>
                       : "—"}</td>
@@ -2416,7 +2416,7 @@ export function StockDetail({ company, id }: { company: string; id: string }) {
               <tbody>
                 {txns.map(t => (
                   <tr key={t.id}>
-                    <td>{t.created_at?.slice(0, 10)}</td>
+                    <td>{fmtDate(t.created_at)}</td>
                     <td><Badge value={t.txn_type} /></td>
                     <td className="r" style={{ color: Number(t.qty) < 0 ? "var(--color-fail, #c00)" : undefined }}>{t.qty}</td>
                     <td>{t.unit || "—"}</td>
@@ -2779,7 +2779,7 @@ export function PurchaseOrderDetail({ company, id }: { company: string; id: stri
                     <td>{g.heat_no || "—"}</td>
                     <td className="r">{g.quantity != null ? `${g.quantity} ${g.unit || ""}`.trim() : "—"}</td>
                     <td>{g.cert_ref || "—"}</td>
-                    <td>{g.confirmed_at?.slice(0, 10) || "—"}</td>
+                    <td>{fmtDate(g.confirmed_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -2952,7 +2952,7 @@ export function GRNList({ company }: { company: string }) {
               <td>{r.grade || "—"}</td>
               <td>{r.quantity != null ? `${r.quantity} ${r.unit ?? ""}` : "—"}</td>
               <td>{r.warehouse || "—"}</td>
-              <td>{r.created_at?.slice(0, 10)}</td>
+              <td>{fmtDate(r.created_at)}</td>
               <td>{r.conformance_pass === true
                 ? <span className="badge badge--pass">PASS</span>
                 : r.conformance_pass === false
@@ -3036,7 +3036,7 @@ export function GRNDetail({ company, id }: { company: string; id: string }) {
               <dl>
                 <dt>Price</dt><dd>{grn.price_gbp != null ? `£${grn.price_gbp} / ${grn.price_basis}` : "—"}</dd>
                 <dt>Alloy surcharge</dt><dd>{grn.alloy_surcharge_pence != null ? `£${(grn.alloy_surcharge_pence/100).toFixed(2)}` : "—"}</dd>
-                <dt>Confirmed</dt><dd>{grn.confirmed_at?.slice(0,10) || "—"}</dd>
+                <dt>Confirmed</dt><dd>{fmtDate(grn.confirmed_at)}</dd>
               </dl>
             </div>
           </div>
@@ -3199,7 +3199,8 @@ export function StockBatchList({ company }: { company: string }) {
         <thead><tr>
           <th>Batch No</th><th>GRN</th><th>Stock Code</th><th>Grade</th><th>Spec</th>
           <th>Heat No</th><th>Cert Ref</th><th>Qty Rec'd</th><th>On Orders</th><th>Qty Free</th>
-          <th>Unit</th><th>Warehouse</th><th>Conform</th><th>Status</th><th>Date</th><th></th>
+          <th>Unit</th><th>Warehouse</th><th>Conform</th><th>Status</th><th>Date</th>
+          <th className="r">Cost Base</th><th className="r">Alloy Surch.</th><th className="r">Cost Total</th><th></th>
         </tr></thead>
         <tbody>
           {rows.map(r => {
@@ -3224,7 +3225,10 @@ export function StockBatchList({ company }: { company: string }) {
                 ? <span className="badge badge--fail">FAIL</span>
                 : "—"}</td>
               <td><Badge value={r.status} /></td>
-              <td>{r.created_at?.slice(0, 10)}</td>
+              <td>{fmtDate(r.created_at)}</td>
+              <td className="r">{r.cost_base != null ? fmtGbp(r.cost_base) : "—"}</td>
+              <td className="r">{r.cost_alloy_surcharge != null ? fmtGbp(r.cost_alloy_surcharge) : "—"}</td>
+              <td className="r">{r.cost_total != null ? fmtGbp(r.cost_total) : "—"}</td>
               <td>{r.status === "available" && r.qty_available > 0 &&
                 <button className="action-btn" onClick={() =>
                   setSplit({ batchNo: r.batch_no, max: r.qty_available, qty: "", length_mm: "", saving: false, err: null })
@@ -3713,7 +3717,7 @@ export function MTCDetail({ company, id }: { company: string; id: string }) {
                   : mtc.supplier_account
                     ? <a href={`#/${company}/suppliers/${encodeURIComponent(mtc.supplier_account)}`}>{mtc.supplier_account}</a>
                     : "—"}</dd>
-                <dt>Cert date</dt><dd>{mtc.cert_date?.slice(0,10) || "—"}</dd>
+                <dt>Cert date</dt><dd>{fmtDate(mtc.cert_date)}</dd>
               </dl>
             </div>
             <div className="detail-card">
@@ -3729,7 +3733,7 @@ export function MTCDetail({ company, id }: { company: string; id: string }) {
               <h3>Status</h3>
               <dl>
                 <dt>Verified</dt><dd>{verified
-                  ? <span className="badge badge--pass">{verified.slice(0,10)}{mtc.verified_by ? ` · ${mtc.verified_by}` : ""}</span>
+                  ? <span className="badge badge--pass">{fmtDate(verified)}{mtc.verified_by ? ` · ${mtc.verified_by}` : ""}</span>
                   : <span className="badge badge--fail">unverified</span>}</dd>
                 <dt>Source</dt><dd>{mtc.ocr_extracted ? "AI-extracted" : "Manual"}</dd>
                 <dt>Linked batches</dt><dd>{mtc.batches.length}</dd>
@@ -3997,10 +4001,18 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
               </dl>
             </div>
             <div className="detail-card">
+              <h3>Purchase cost {b.cost_basis ? `(per ${b.cost_basis})` : ""}</h3>
+              <dl>
+                <dt>Base price</dt><dd>{b.cost_base != null ? fmtGbp(b.cost_base) : "—"}</dd>
+                <dt>Alloy surcharge</dt><dd>{b.cost_alloy_surcharge != null ? fmtGbp(b.cost_alloy_surcharge) : "—"}</dd>
+                <dt>Total cost</dt><dd>{b.cost_total != null ? <strong>{fmtGbp(b.cost_total)}</strong> : "—"}</dd>
+              </dl>
+            </div>
+            <div className="detail-card">
               <h3>Origin</h3>
               <dl>
                 <dt>Warehouse</dt><dd>{b.warehouse || "—"}</dd>
-                <dt>Created</dt><dd>{b.created_at?.slice(0, 10)}</dd>
+                <dt>Created</dt><dd>{fmtDate(b.created_at)}</dd>
                 {b.manufacturer_account && <>
                   <dt>Manufacturer</dt><dd>
                     <a href={`#/${company}/suppliers/${encodeURIComponent(b.manufacturer_account)}`}>
@@ -4064,7 +4076,7 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
                           <td><a href={`#/${company}/batches/${c.child_batch_no}`}>{c.child_batch_no}</a></td>
                           <td>{c.quantity_from_parent}</td>
                           <td>{c.weight_from_parent_kg ?? "—"}</td>
-                          <td>{c.created_at?.slice(0, 10)}</td>
+                          <td>{fmtDate(c.created_at)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -4149,9 +4161,9 @@ export function QuoteList({ company }: { company: string }) {
               <tr key={r.quote_no} className="row-link" onClick={() => location.hash = `#/${company}/quotes/${encodeURIComponent(r.quote_no)}`}>
                 <td><strong className="row-link-id">{r.quote_no}</strong></td>
                 <td>{r.customer_name || r.customer_account || "—"}</td>
-                <td>{r.quote_date?.slice(0, 10) || "—"}</td>
+                <td>{fmtDate(r.quote_date)}</td>
                 <td style={expired ? { color: "var(--color-fail,#c00)", fontWeight: 600 } : undefined}>
-                  {r.valid_until?.slice(0, 10) || "—"}{expired ? " (expired)" : ""}
+                  {fmtDate(r.valid_until)}{expired ? " (expired)" : ""}
                 </td>
                 <td className="r">{fmtGbp(r.net_gbp)}</td>
                 <td className="r">{fmtGbp(r.total_gbp)}</td>
@@ -4297,8 +4309,8 @@ export function QuoteDetail({ company, id }: { company: string; id: string }) {
                 <dt>Customer</dt><dd>{q.customer_account
                   ? <a href={`#/${company}/customers/${encodeURIComponent(q.customer_account)}`}>{q.customer_name || q.customer_account}</a>
                   : "—"}</dd>
-                <dt>Date</dt><dd>{q.quote_date?.slice(0, 10) || "—"}</dd>
-                <dt>Valid until</dt><dd>{q.valid_until?.slice(0, 10) || "—"}</dd>
+                <dt>Date</dt><dd>{fmtDate(q.quote_date)}</dd>
+                <dt>Valid until</dt><dd>{fmtDate(q.valid_until)}</dd>
                 <dt>Status</dt><dd><Badge value={converted ? "converted" : q.status} /></dd>
               </dl>
             </div>
@@ -6336,7 +6348,7 @@ export function AdminUsers({ company }: { company: string }) {
                   </select>
                 </td>
                 <td><Badge value={m.status} /></td>
-                <td>{m.created_at?.slice(0, 10)}</td>
+                <td>{fmtDate(m.created_at)}</td>
                 <td><button onClick={() => toggle(m)}>{m.status === "disabled" ? "Enable" : "Disable"}</button></td>
               </tr>
             ))}
