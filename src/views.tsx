@@ -1187,7 +1187,7 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
   const [recalcBusy, setRecalcBusy] = useState(false)
   async function recalcRisk() {
     setRecalcBusy(true)
-    try { await api.customers.recalculateRiskScore(company, id); setRiskRev(r => r + 1) }
+    try { await api.customers.recalculateRiskScore(company, id); setRiskRev(r => r + 1); setCRev(r => r + 1) }
     finally { setRecalcBusy(false) }
   }
   return (
