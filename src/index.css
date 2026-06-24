@@ -54,64 +54,122 @@
 html { font-size: 16px; -webkit-font-smoothing: antialiased; }
 body { font-family: var(--font); background: var(--bg); color: var(--text-primary); line-height: 1.6; font-size: 14px; }
 
-/* ── Login (split panel) ── */
-.lp { display: flex; min-height: 100vh; }
-
-.lp-panel {
-  flex: 0 0 42%; background: var(--navy); display: flex; flex-direction: column;
-  padding: 2.75rem 3rem; position: relative; overflow: hidden;
+/* ── Login page (MetlSpec-style: full dark bg, split content) ── */
+.ls-page { min-height: 100vh; background: var(--navy); display: flex; align-items: stretch; }
+/* max-width centres the content away from viewport edges; ::after provides the content-height divider */
+.ls-inner {
+  flex: 1; display: flex; max-width: 1120px; margin: 0 auto; width: 100%;
+  position: relative;
 }
-/* subtle grid texture */
-.lp-panel::before {
-  content: ""; position: absolute; inset: 0;
-  background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
-  background-size: 32px 32px;
+/* Divider that only spans the content area — starts and ends inside the padding, not full-height */
+.ls-inner::after {
+  content: ""; position: absolute; left: 50%;
+  top: min(22vh, 11rem); bottom: 3rem;
+  width: 1px; background: rgba(255,255,255,.08); pointer-events: none;
 }
-.lp-logo { display: flex; align-items: center; gap: .65rem; position: relative; z-index: 1; }
-.lp-logo-name { font-size: 1.25rem; font-weight: 800; letter-spacing: -.03em; color: #fff; }
 
-.lp-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 2.5rem 0; position: relative; z-index: 1; }
-.lp-tagline { font-size: .72rem; text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.45); margin-bottom: .65rem; }
-.lp-title { font-size: 1.9rem; font-weight: 800; letter-spacing: -.035em; line-height: 1.2; color: #fff; margin-bottom: 1rem; }
-.lp-desc { font-size: .875rem; color: rgba(255,255,255,.6); line-height: 1.65; margin-bottom: 2rem; }
-.lp-features { list-style: none; display: flex; flex-direction: column; gap: .8rem; }
-.lp-features li { display: flex; align-items: flex-start; gap: .7rem; font-size: .85rem; color: rgba(255,255,255,.8); line-height: 1.4; }
-.lp-check { flex-shrink: 0; margin-top: 1px; }
+/* Left info panel — 50% */
+.ls-info {
+  flex: 1; display: flex; flex-direction: column;
+  padding: min(22vh, 11rem) 4rem 3rem 4rem;
+  /* no border-right — divider is on ls-inner::after */
+  position: relative; overflow: hidden; min-width: 0;
+}
+.ls-info-glow {
+  /* centred on the content area, not the top-left corner */
+  position: absolute; top: 45%; left: -5%;
+  transform: translateY(-50%);
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(37,99,235,.14) 0%, transparent 60%);
+  pointer-events: none;
+}
+.ls-logo { margin-bottom: 2.5rem; }
 
-.lp-footer { font-size: .72rem; color: rgba(255,255,255,.3); position: relative; z-index: 1; }
+.ls-title {
+  font-size: clamp(3rem, 6vw, 5.25rem); font-weight: 800; letter-spacing: -.055em;
+  color: #fff; line-height: 1; margin-bottom: .45rem;
+}
+.ls-subtitle {
+  font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .14em;
+  color: var(--brand); margin-bottom: .6rem;
+}
+.ls-accent { width: 36px; height: 2.5px; background: var(--brand); border-radius: 2px; margin-bottom: 1.75rem; }
+.ls-desc {
+  font-size: 1rem; color: rgba(255,255,255,.6); line-height: 1.7;
+  max-width: 420px; margin-bottom: 1.75rem;
+}
+.ls-feat-label {
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  color: rgba(255,255,255,.32); margin-bottom: .6rem;
+}
+.ls-feat-list { list-style: none; display: flex; flex-direction: column; gap: .65rem; }
+.ls-feat-item { display: flex; align-items: center; gap: .65rem; font-size: .9rem; color: rgba(255,255,255,.82); }
+.ls-feat-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); flex-shrink: 0; }
 
-.lp-form {
+.ls-info-footer {
+  margin-top: auto; padding-top: 2rem;
+  font-size: .75rem; color: rgba(255,255,255,.28);
+  display: flex; gap: .75rem; align-items: center; flex-wrap: wrap;
+}
+.ls-foot-sep { width: 1px; height: 12px; background: rgba(255,255,255,.14); }
+.ls-foot-link { color: rgba(255,255,255,.3); text-decoration: none; transition: color .15s; }
+.ls-foot-link:hover { color: rgba(255,255,255,.6); }
+
+/* Right auth card — 50% */
+.ls-auth {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  padding: 3rem 2rem; background: var(--bg);
+  padding: 3rem 4rem; min-width: 0;
 }
-.lp-form-inner { width: 100%; max-width: 360px; }
-.lp-form-inner h2 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em; color: var(--navy); margin-bottom: .3rem; }
-.lp-form-inner > p { color: var(--text-muted); margin-bottom: 1.75rem; font-size: .9rem; }
-.lp-form-inner form { display: flex; flex-direction: column; gap: 1rem; }
-.lp-form-inner label { display: flex; flex-direction: column; gap: .35rem; font-size: .8rem; font-weight: 600; color: var(--text-mid); }
-.lp-form-inner input {
+.ls-card {
+  background: #fff; border-radius: 16px; padding: 2.25rem 2.5rem;
+  width: 100%; max-width: 420px; box-shadow: 0 24px 64px rgba(0,0,0,.35);
+}
+.ls-card h2 {
+  font-size: 1.4rem; font-weight: 800; letter-spacing: -.03em;
+  color: var(--navy); margin-bottom: .3rem;
+}
+.ls-card form > p { font-size: .83rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+
+.ls-field { margin-bottom: 1rem; }
+.ls-field label {
+  display: block; font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--text-mid); margin-bottom: .35rem;
+}
+.ls-field label span { color: var(--brand); margin-left: 2px; }
+.ls-field input {
+  width: 100%; box-sizing: border-box;
   padding: 10px 14px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-md);
-  font-size: .95rem; font-family: var(--font); outline: none; background: var(--surface);
+  font-size: .95rem; font-family: var(--font); outline: none; background: #fff;
   transition: border-color .15s, box-shadow .15s;
 }
-.lp-form-inner input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
-.lp-form-inner button[type=submit] {
-  margin-top: .25rem; padding: 11px; border: none;
-  border-radius: var(--radius-pill); background: var(--brand); color: #fff;
+.ls-field input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+.ls-card button[type=submit] {
+  width: 100%; margin-top: .75rem; padding: 12px; border: none;
+  border-radius: var(--radius-md); background: var(--brand); color: #fff;
   font-size: .95rem; font-weight: 700; font-family: var(--font);
   cursor: pointer; transition: all .15s; box-shadow: 0 4px 14px rgba(37,99,235,.30);
 }
-.lp-form-inner button[type=submit]:hover:not(:disabled) { background: var(--brand-hover); transform: translateY(-1px); }
-.lp-form-inner button[type=submit]:disabled { opacity: .45; cursor: default; transform: none; box-shadow: none; }
-.lp-err { font-size: .82rem; color: var(--red); background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--radius-sm); padding: .4rem .75rem; }
+.ls-card button[type=submit]:hover:not(:disabled) { background: var(--brand-hover); transform: translateY(-1px); }
+.ls-card button[type=submit]:disabled { opacity: .45; cursor: default; transform: none; box-shadow: none; }
+.ls-err {
+  font-size: .82rem; color: var(--red); background: var(--red-bg);
+  border: 1px solid var(--red-border); border-radius: var(--radius-sm);
+  padding: .4rem .75rem; margin-top: .5rem;
+}
 
-@media (max-width: 768px) {
-  .lp { flex-direction: column; }
-  .lp-panel { flex: none; padding: 1.5rem 1.25rem; }
-  .lp-hero { display: none; }
-  .lp-footer { display: none; }
-  .lp-form { padding: 2rem 1.25rem; align-items: flex-start; }
+/* Mobile */
+@media (max-width: 860px) {
+  .ls-inner { flex-direction: column; }
+  .ls-inner::after { display: none; }
+  .ls-info { flex: none; padding: 2rem 1.5rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .ls-logo { margin-bottom: 1.25rem; }
+  .ls-title { font-size: 2.4rem; }
+  .ls-subtitle { font-size: .72rem; }
+  .ls-accent { margin-bottom: 0; }
+  .ls-desc, .ls-feat-label, .ls-feat-list, .ls-info-footer { display: none; }
+  .ls-auth { flex: none; padding: 2rem 1.5rem; justify-content: flex-start; }
+  .ls-card { box-shadow: 0 4px 24px rgba(0,0,0,.15); }
 }
 
 /* ── Company picker ── */
