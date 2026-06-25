@@ -305,6 +305,24 @@ export type SalesOrderDetail = {
   derived_status: string
   delivery_notes: { doc_no: string; doc_date: string; despatch_status: string; invoiced: boolean }[]
   invoices: { doc_no: string; invoice_date_serial: string; net_amount: number; total_amount: number; status: string; posted: boolean | null }[]
+  contract_review: { status: string; overall_match: boolean | null; signed_off_at: string | null } | null
+}
+
+export type ContractReviewField = {
+  field: string; customer: unknown; system: unknown
+  verdict: "match" | "review" | "mismatch" | "unresolved"
+}
+export type ContractReviewLine = {
+  so_line_no: number | null; unmatched?: string; fields: ContractReviewField[]
+}
+export type ContractReview = {
+  id: number; order_no: string; source: "wizard_po" | "uploaded" | "manual"
+  document_path: string | null; extracted: unknown
+  comparison: { overall_match: boolean | null; lines: ContractReviewLine[] } | null
+  overall_match: boolean | null
+  status: "matched" | "discrepancies" | "manual" | "signed_off"
+  signed_off_by: string | null; signed_off_at: string | null; override_note: string | null
+  created_by: string | null; created_at: string
 }
 
 export type InvoiceLine = {
@@ -1144,6 +1162,26 @@ export const api = {
       post<MtcAiExtraction>(`${v1(co)}/mtcs/${id}/ai-extract`, {}),
     aiConfirm: (co: string, id: number, fields: Record<string, unknown>, confirmed_by?: string) =>
       post<{ ok: boolean; fields_applied: string[] }>(`${v1(co)}/mtcs/${id}/ai-confirm`, { fields, confirmed_by }),
+  },
+  contractReview: {
+    get: (co: string, no: string) =>
+      get<ContractReview | null>(`${v1(co)}/sales-orders/${encodeURIComponent(no)}/contract-review`),
+    extract: async (co: string, no: string,
+                    opts: { files?: File[]; useWizardPo?: boolean; manual?: boolean }) => {
+      const headers = await authHeader()
+      const fd = new FormData()
+      ;(opts.files ?? []).forEach(f => fd.append("files", f))
+      if (opts.useWizardPo) fd.append("use_wizard_po", "true")
+      if (opts.manual) fd.append("manual", "true")
+      return fetch(`${BASE}${v1(co)}/sales-orders/${encodeURIComponent(no)}/contract-review/extract`,
+        { method: "POST", headers, body: fd }).then(async r => {
+          if (!r.ok) { const d = await r.json().catch(() => null); throw new Error(d?.detail ?? `${r.status}`) }
+          return r.json() as Promise<ContractReview>
+        })
+    },
+    signOff: (co: string, no: string, override_note?: string) =>
+      post<ContractReview>(
+        `${v1(co)}/sales-orders/${encodeURIComponent(no)}/contract-review/sign-off`, { override_note }),
   },
   dispatch: {
     create: (co: string, body: { sales_order_no: string; lines: object[] }) =>
