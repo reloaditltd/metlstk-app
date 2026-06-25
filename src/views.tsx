@@ -36,6 +36,7 @@ import {
   portalApi, portalLogin,
   type PortalMe, type PortalOrder, type PortalAccount, type PortalInvoice,
   type Notification, type NotifPref,
+  type ContractReview, type ContractReviewLine, type ContractReviewField,
 } from "./api"
 
 function useDebounce<T>(value: T, ms: number): T {
@@ -1492,6 +1493,170 @@ function RemnantPanel({ company, stockCode, cutLengthMm, sawTypeId }: {
   )
 }
 
+const CR_VERDICT_LABEL: Record<string, string> = {
+  match: "✓ match", review: "⚠ review", mismatch: "✗ mismatch", unresolved: "— unresolved",
+}
+
+function ContractReviewPanel({ company, order, onChanged }: { company: string; order: SalesOrderDetail; onChanged: () => void }) {
+  const [review, setReview] = useState<ContractReview | null | undefined>(undefined)
+  const [files, setFiles] = useState<File[]>([])
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState("")
+  const [msg, setMsg] = useState<string | null>(null)
+
+  useData(() => api.contractReview.get(company, order.order_no).then(r => { setReview(r); return r }),
+    [company, order.order_no])
+
+  async function run(opts: { files?: File[]; useWizardPo?: boolean; manual?: boolean }) {
+    setBusy(true); setMsg(null)
+    try {
+      const r = await api.contractReview.extract(company, order.order_no, opts)
+      setReview(r); setFiles([]); onChanged()
+    } catch (e) { setMsg(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false) }
+  }
+
+  async function signOff() {
+    setBusy(true); setMsg(null)
+    try {
+      const r = await api.contractReview.signOff(company, order.order_no, note.trim() || undefined)
+      setReview(r); setNote(""); onChanged()
+    } catch (e) { setMsg(e instanceof Error ? e.message : String(e)) }
+    finally { setBusy(false) }
+  }
+
+  const cmp = review?.comparison
+  const needsNote = review != null && review.status !== "matched"
+
+  return (
+    <div className="detail-lines" id="contract-review" style={{ marginTop: "1.5rem" }}>
+      <h3>Contract Review <span style={{ fontWeight: 400, fontSize: ".8rem", color: "var(--text-muted)" }}>— ISO 9001 8.2.3</span></h3>
+
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+        <button className="action-btn" disabled={busy} onClick={() => run({ useWizardPo: true })}>Use captured PO</button>
+        <button className="action-btn" disabled={busy || files.length === 0} onClick={() => run({ files })}>
+          {busy ? "Reading…" : "Compare uploaded doc"}
+        </button>
+        <button disabled={busy} onClick={() => run({ manual: true })}>Verbal order (no doc)</button>
+        {msg && <span className="badge badge--fail">{msg}</span>}
+      </div>
+      <FileDrop multiple accept="application/pdf,image/*"
+        onChange={e => setFiles(Array.from(e.target.files ?? []))} />
+
+      {review === undefined && <p className="state-msg">Loading…</p>}
+      {review === null && <p className="state-msg">No contract review yet — compare the customer order above.</p>}
+
+      {review && (
+        <div style={{ marginTop: "1rem" }}>
+          <p style={{ marginBottom: ".5rem" }}>
+            Status:{" "}
+            {review.status === "signed_off"
+              ? <span className="badge badge--pass">signed off{review.signed_off_at ? ` · ${fmtDate(review.signed_off_at)}` : ""}</span>
+              : review.status === "matched"
+                ? <span className="badge badge--pass">matched</span>
+                : review.status === "manual"
+                  ? <span className="badge">verbal — no document</span>
+                  : <span className="badge badge--fail">discrepancies</span>}
+          </p>
+
+          {cmp && cmp.lines.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Line</th><th>Field</th><th>Customer</th><th>System</th><th>Verdict</th></tr></thead>
+                <tbody>
+                  {cmp.lines.flatMap((ln: ContractReviewLine) =>
+                    ln.unmatched
+                      ? [<tr key={`u${ln.so_line_no ?? "x"}`}>
+                          <td>{ln.so_line_no ?? "—"}</td>
+                          <td colSpan={3}>{ln.unmatched === "extra_customer_line" ? "Customer line with no system match" : "System line with no customer match"}</td>
+                          <td><span className="cr-verdict cr-verdict--mismatch">✗ mismatch</span></td>
+                        </tr>]
+                      : ln.fields.map((f: ContractReviewField, i: number) => (
+                          <tr key={`${ln.so_line_no}-${f.field}-${i}`}>
+                            <td>{i === 0 ? ln.so_line_no : ""}</td>
+                            <td>{f.field}</td>
+                            <td>{f.customer == null || f.customer === "" ? "—" : String(f.customer)}</td>
+                            <td>{f.system == null || f.system === "" ? "—" : String(f.system)}</td>
+                            <td><span className={`cr-verdict cr-verdict--${f.verdict}`}>{CR_VERDICT_LABEL[f.verdict] ?? f.verdict}</span></td>
+                          </tr>
+                        ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {review.status !== "signed_off" && (
+            <div style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap", marginTop: ".75rem" }}>
+              {needsNote && (
+                <input style={{ flex: 1, minWidth: "16rem" }} placeholder="Override / acceptance note (required)"
+                  value={note} onChange={e => setNote(e.target.value)} />
+              )}
+              <button className="action-btn" disabled={busy || (needsNote && !note.trim())} onClick={signOff}>Sign off review</button>
+            </div>
+          )}
+          {review.status === "signed_off" && review.override_note && (
+            <p style={{ fontSize: ".82rem", color: "var(--text-muted)", marginTop: ".5rem" }}>Note: {review.override_note}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type TrackState = "done" | "active" | "attention" | "pending"
+function TrackRow({ label, state, hint, onClick }:
+  { label: string; state: TrackState; hint: string; onClick?: () => void }) {
+  return (
+    <li>
+      <span>{onClick
+        ? <button onClick={onClick} style={{ background: "none", border: "none", padding: 0, color: "var(--brand)", cursor: "pointer", font: "inherit" }}>{label}</button>
+        : label}</span>
+      <span className={`track-pill track-pill--${state}`}>{hint}</span>
+    </li>
+  )
+}
+
+function OrderSidebar({ company, order }: { company: string; order: SalesOrderDetail }) {
+  const { data: allocs } = useData<Allocation[]>(
+    () => api.sales.listAllocations(company, order.order_no), [company, order.order_no])
+
+  const confirmed = order.status === "confirmed"
+  const lineNos = order.lines.map(l => l.line_no)
+  const allocated = allocs != null && lineNos.length > 0 && lineNos.every(n => allocs.some(a => a.line_no === n))
+  const someAllocated = allocs != null && allocs.length > 0
+
+  const cr = order.contract_review
+  const crState: TrackState = cr == null ? "pending"
+    : cr.status === "signed_off" ? "done"
+    : cr.status === "matched" ? "active"
+    : "attention"
+  const crHint = cr == null ? "not started"
+    : cr.status === "signed_off" ? "signed off"
+    : cr.status === "manual" ? "verbal" : cr.status
+
+  const despatched = order.delivery_notes.some(d => d.despatch_status !== "voided")
+  const invoiced = order.invoices.length > 0
+
+  const goReview = () => { document.getElementById("contract-review")?.scrollIntoView({ behavior: "smooth" }) }
+
+  return (
+    <aside className="order-sidebar">
+      <div className="order-sidebar__card">
+        <h4>Order progress</h4>
+        <ul className="order-track">
+          <TrackRow label="Confirmed" state={confirmed ? "done" : "active"} hint={confirmed ? "confirmed" : (order.status ?? "draft")} />
+          <TrackRow label="Picked / allocated" state={allocated ? "done" : someAllocated ? "active" : "pending"}
+            hint={allocated ? "allocated" : someAllocated ? "partial" : "none"} />
+          <TrackRow label="Contract review" state={crState} hint={crHint} onClick={goReview} />
+          <TrackRow label="Despatched" state={despatched ? "done" : "pending"} hint={despatched ? "despatched" : "pending"} />
+          <TrackRow label="Invoiced" state={invoiced ? "done" : "pending"} hint={invoiced ? "invoiced" : "pending"} />
+        </ul>
+      </div>
+    </aside>
+  )
+}
+
 export function SalesOrderDetail({ company, id }: { company: string; id: string }) {
   const [rev, setRev] = useState(0)
   const [cancelMsg, setCancelMsg] = useState<string | null>(null)
@@ -1511,6 +1676,8 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
     <DetailShell loading={loading} error={error}>
       {o && <>
         <a href={`#/${company}/sales-orders`} className="back-link">← Sales Orders</a>
+        <div className="so-detail-layout">
+        <div className="so-detail-main">
         <div style={{ marginBottom: "0.75rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
           <button className="action-btn" onClick={async () => { try { window.open(await api.sales.pdf(company, o.order_no), "_blank") } catch (e) { alert(String(e)) } }}>PDF</button>
           {o.status === "confirmed" && <button className="action-btn" onClick={async () => { try { const r = await api.soWizard.ackPdfUrl(company, o.order_no); window.open(r.url, "_blank") } catch (e) { alert(String(e)) } }}>Ack PDF</button>}
@@ -1681,9 +1848,13 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
             </table>
           </div>
         )}
+        <ContractReviewPanel company={company} order={o} onChanged={() => setRev(r => r + 1)} />
         <AllocationSection company={company} order={o} />
         <DespatchReadiness company={company} orderNo={o.order_no} />
         <DespatchSection company={company} order={o} />
+        </div>
+        <OrderSidebar company={company} order={o} />
+        </div>
       </>}
     </DetailShell>
   )
