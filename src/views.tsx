@@ -1497,21 +1497,21 @@ const CR_VERDICT_LABEL: Record<string, string> = {
   match: "✓ match", review: "⚠ review", mismatch: "✗ mismatch", unresolved: "— unresolved",
 }
 
-function ContractReviewPanel({ company, order, onChanged }: { company: string; order: SalesOrderDetail; onChanged: () => void }) {
+function ContractReviewPanel({ company, orderNo, onChanged }: { company: string; orderNo: string; onChanged?: () => void }) {
   const [review, setReview] = useState<ContractReview | null | undefined>(undefined)
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState("")
   const [msg, setMsg] = useState<string | null>(null)
 
-  useData(() => api.contractReview.get(company, order.order_no).then(r => { setReview(r); return r }),
-    [company, order.order_no])
+  useData(() => api.contractReview.get(company, orderNo).then(r => { setReview(r); return r }),
+    [company, orderNo])
 
   async function run(opts: { files?: File[]; useWizardPo?: boolean; manual?: boolean }) {
     setBusy(true); setMsg(null)
     try {
-      const r = await api.contractReview.extract(company, order.order_no, opts)
-      setReview(r); setFiles([]); onChanged()
+      const r = await api.contractReview.extract(company, orderNo, opts)
+      setReview(r); setFiles([]); onChanged?.()
     } catch (e) { setMsg(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(false) }
   }
@@ -1519,8 +1519,8 @@ function ContractReviewPanel({ company, order, onChanged }: { company: string; o
   async function signOff() {
     setBusy(true); setMsg(null)
     try {
-      const r = await api.contractReview.signOff(company, order.order_no, note.trim() || undefined)
-      setReview(r); setNote(""); onChanged()
+      const r = await api.contractReview.signOff(company, orderNo, note.trim() || undefined)
+      setReview(r); setNote(""); onChanged?.()
     } catch (e) { setMsg(e instanceof Error ? e.message : String(e)) }
     finally { setBusy(false) }
   }
@@ -1848,7 +1848,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
             </table>
           </div>
         )}
-        <ContractReviewPanel company={company} order={o} onChanged={() => setRev(r => r + 1)} />
+        <ContractReviewPanel company={company} orderNo={o.order_no} onChanged={() => setRev(r => r + 1)} />
         <AllocationSection company={company} order={o} />
         <DespatchReadiness company={company} orderNo={o.order_no} />
         <DespatchSection company={company} order={o} />
@@ -7278,6 +7278,7 @@ export function SalesOrderNew({ company }: { company: string }) {
               ))}
             </tbody>
           </table>
+          {orderNo && <ContractReviewPanel company={company} orderNo={orderNo} />}
         </div>
       )}
 
