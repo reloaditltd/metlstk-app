@@ -514,6 +514,17 @@ code { font-family: var(--mono); font-size: .78rem; background: #F1F5F9; padding
 }
 .grn-file-input::file-selector-button:hover { background: var(--brand); color: #fff; }
 .grn-files      { color: var(--text-muted); font-size: .85rem; margin-top: .5rem; }
+.file-drop {
+  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 64px; padding: .85rem 1rem; text-align: center;
+  border: 1.5px dashed var(--border-mid); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--text-muted); font-size: .85rem;
+  cursor: pointer; transition: border-color .15s, background .15s, color .15s;
+}
+.file-drop:hover { border-color: var(--brand); color: var(--brand); }
+.file-drop--over { border-style: solid; border-color: var(--brand); background: var(--brand-light); color: var(--brand); }
+.file-drop--disabled { opacity: .55; cursor: not-allowed; }
+.file-drop__hint { pointer-events: none; word-break: break-word; }
 .grn-error      { color: var(--red); font-size: .875rem; margin-top: .75rem; }
 .grn-form       { display: flex; flex-direction: column; gap: 1.25rem; }
 .grn-section    { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.35rem; box-shadow: var(--shadow-sm); }

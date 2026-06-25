@@ -47,6 +47,46 @@ function useDebounce<T>(value: T, ms: number): T {
   return dv
 }
 
+// Drop-zone wrapper around a native file input. Drag-and-drop or click to browse.
+// On drop it assigns the files to the hidden input and fires a native change event,
+// so every existing onChange handler (and any external ref) keeps working unchanged.
+function FileDrop({ ref, className, style, onChange, ...props }: React.ComponentPropsWithRef<"input">) {
+  const inner = useRef<HTMLInputElement | null>(null)
+  const [over, setOver] = useState(false)
+  const [names, setNames] = useState<string[]>([])
+  const attach = (el: HTMLInputElement | null) => {
+    inner.current = el
+    if (typeof ref === "function") ref(el)
+    else if (ref) (ref as React.RefObject<HTMLInputElement | null>).current = el
+  }
+  return (
+    <div
+      className={["file-drop", over && "file-drop--over", props.disabled && "file-drop--disabled", className].filter(Boolean).join(" ")}
+      style={style}
+      onClick={() => !props.disabled && inner.current?.click()}
+      onDragOver={e => { if (!props.disabled) { e.preventDefault(); setOver(true) } }}
+      onDragLeave={() => setOver(false)}
+      onDrop={e => {
+        e.preventDefault(); setOver(false)
+        if (props.disabled || !e.dataTransfer.files.length) return
+        inner.current!.files = e.dataTransfer.files
+        inner.current!.dispatchEvent(new Event("change", { bubbles: true }))
+      }}
+    >
+      <input
+        {...props}
+        type="file"
+        ref={attach}
+        style={{ display: "none" }}
+        onChange={e => { setNames(Array.from(e.target.files ?? []).map(f => f.name)); onChange?.(e) }}
+      />
+      <span className="file-drop__hint">
+        {names.length ? names.join(", ") : `Drop file${props.multiple ? "s" : ""} here, or click to browse`}
+      </span>
+    </div>
+  )
+}
+
 function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="search-bar">
@@ -97,6 +137,7 @@ function useData<T>(fn: () => Promise<T>, deps: unknown[]) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [nonce, setNonce] = useState(0)
   useEffect(() => {
     let live = true
     setLoading(true)
@@ -106,13 +147,13 @@ function useData<T>(fn: () => Promise<T>, deps: unknown[]) {
       .catch(e => { if (live) { setError(String(e)); setLoading(false) } })
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
-  return { data, loading, error }
+  }, [...deps, nonce])
+  return { data, loading, error, refresh: () => setNonce(n => n + 1) }
 }
 
 const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" })
 const fmtGbp = (n: number | null | undefined) => (n != null ? gbp.format(n) : "—")
-const fmtKg = (v: number | null | undefined) => v == null ? "—" : `${Number(v).toFixed(1)} kg`
+const fmtKg = (v: number | string | null | undefined) => v == null ? "—" : `${Number(v).toFixed(1)} kg`
 const fmtQty = (v: number | string | null | undefined) => {
   if (v == null || v === "") return "—"
   const n = Number(v)
@@ -2063,7 +2104,7 @@ export function CustomerNew({ company }: { company: string }) {
         <div className="grn-section">
           <h3>Pre-fill from document</h3>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <input ref={fileRef} type="file" accept=".pdf,image/*" multiple style={{ flex: 1 }} />
+            <FileDrop ref={fileRef} accept=".pdf,image/*" multiple style={{ flex: 1 }} />
             <button className="action-btn" onClick={extract} disabled={extracting}>
               {extracting ? "Extracting…" : "Extract with AI"}
             </button>
@@ -2180,7 +2221,7 @@ export function StockNew({ company }: { company: string }) {
         <div className="grn-section">
           <h3>Pre-fill from document</h3>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <input ref={fileRef} type="file" accept=".pdf,image/*" multiple style={{ flex: 1 }} />
+            <FileDrop ref={fileRef} accept=".pdf,image/*" multiple style={{ flex: 1 }} />
             <button className="action-btn" onClick={extract} disabled={extracting}>
               {extracting ? "Extracting…" : "Extract with AI"}
             </button>
@@ -2597,7 +2638,7 @@ export function PONew({ company, initialStock, initialQty }: { company: string; 
       <div className="grn-form">
         <div className="grn-section">
           <h3>Populate from a supplier PO / delivery note (PDF)</h3>
-          <input className="grn-file-input" type="file" accept="application/pdf,image/*" multiple
+          <FileDrop accept="application/pdf,image/*" multiple
             onChange={e => setFiles(Array.from(e.target.files ?? []))} />
           <div className="grn-actions">
             <button className="action-btn" disabled={busy} onClick={extract}>Extract with AI</button>
@@ -3382,9 +3423,8 @@ export function GRNNew({ company, initialPO }: { company: string; initialPO?: st
       {!draft && (
         <div className="grn-upload">
           <p className="grn-hint">Upload mill certificate(s) and/or delivery note as PDF. Claude will extract the batch data for you to review.</p>
-          <input type="file" accept="application/pdf" multiple
-            onChange={e => setFiles(Array.from(e.target.files ?? []))}
-            className="grn-file-input" />
+          <FileDrop accept="application/pdf" multiple
+            onChange={e => setFiles(Array.from(e.target.files ?? []))} />
           {files.length > 0 && (
             <p className="grn-files">{files.map(f=>f.name).join(", ")}</p>
           )}
@@ -4289,7 +4329,7 @@ export function QuoteNew({ company }: { company: string }) {
       <Toolbar title="New Quote" />
       <div className="grn-section" style={{ marginBottom: "1rem" }}>
         <h3>Populate from a customer PDF (enquiry / PO)</h3>
-        <input type="file" multiple accept="application/pdf,image/*"
+        <FileDrop multiple accept="application/pdf,image/*"
           onChange={e => setFiles(Array.from(e.target.files ?? []))} />
         <button className="action-btn" style={{ marginLeft: "0.5rem" }} disabled={busy || files.length === 0} onClick={extract}>
           {busy ? "Reading…" : "Extract with AI"}
@@ -6497,7 +6537,7 @@ function CompanyProfile({ company, settings, onSave }: {
               {vals.logo_url
                 ? <img className="logo-preview" src={vals.logo_url} alt="logo" />
                 : <span style={{ color: "var(--text-muted)", fontSize: ".8rem" }}>No logo uploaded</span>}
-              <input type="file" accept="image/*" onChange={e => {
+              <FileDrop accept="image/*" onChange={e => {
                 const file = e.target.files?.[0]; if (!file) return
                 const reader = new FileReader()
                 reader.onload = () => setVals(v => ({ ...v, logo_url: String(reader.result) }))
@@ -7791,7 +7831,7 @@ export function SupplierNew({ company }: { company: string }) {
       <details style={{ marginBottom: "1rem" }}>
         <summary style={{ cursor: "pointer", fontSize: "0.875rem" }}>AI extract from PDF / document</summary>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginTop: "0.5rem" }}>
-          <input ref={fileRef} type="file" accept=".pdf,image/*" multiple />
+          <FileDrop ref={fileRef} accept=".pdf,image/*" multiple />
           <button onClick={extract} disabled={extracting}>{extracting ? "Extracting…" : "Extract"}</button>
         </div>
       </details>
@@ -8461,7 +8501,7 @@ export function BrandingView({ company }: { company: string }) {
           </label>
           <label style={{ fontSize: "0.85rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
             File (SVG or PNG)
-            <input ref={fileRef} type="file" accept=".svg,.png" />
+            <FileDrop ref={fileRef} accept=".svg,.png" />
           </label>
           <button className="action-btn" disabled={uploadBusy || !uploadName.trim()} onClick={upload}>
             {uploadBusy ? "Uploading…" : "Upload logo"}
@@ -9976,7 +10016,7 @@ export function EdiView({ company }: { company: string }) {
       if (editPartner.id) {
         await api.edi.updatePartner(company, editPartner.id, editPartner as Parameters<typeof api.edi.updatePartner>[2])
       } else {
-        await api.edi.createPartner(company, editPartner as Parameters<typeof api.edi.createPartner>[2])
+        await api.edi.createPartner(company, editPartner as Parameters<typeof api.edi.createPartner>[1])
       }
       setEditPartner(null); loadPartners()
     } catch (ex) { setPErr(ex instanceof Error ? ex.message : String(ex)) }
@@ -9989,7 +10029,7 @@ export function EdiView({ company }: { company: string }) {
       <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
         <label style={{ display: "flex", gap: ".5rem", alignItems: "center", fontSize: ".88rem" }}>
           Upload inbound file:
-          <input type="file" accept=".edi,.txt,.x12,.edifact" onChange={handleUpload} disabled={uploading} />
+          <FileDrop accept=".edi,.txt,.x12,.edifact" onChange={handleUpload} disabled={uploading} />
         </label>
         {uploading && <span>Uploading…</span>}
         {uploadResult && <span className="badge">{uploadResult}</span>}
@@ -10454,7 +10494,7 @@ export function ImportSection({ company, entity, label, header, compact }: {
           onClick={() => downloadCsvTemplate(`${entity}-template.csv`, header)}>
           Download template
         </button>
-        <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+        <FileDrop accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
         <button type="button" className={compact ? "btn btn-sm" : "action-btn"} onClick={upload} disabled={!file || loading}>
           {loading ? "Uploading…" : "Upload"}
         </button>
