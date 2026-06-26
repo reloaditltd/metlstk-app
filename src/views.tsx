@@ -1247,153 +1247,212 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
     <DetailShell loading={loading} error={error}>
       {c && <>
         <a href={`#/${company}/customers`} className="back-link">← Customers</a>
-        <div className="detail-grid">
-          <div className="detail-card">
-            <h3>Contact</h3>
-            <dl>
-              <dt>Phone</dt><dd>{c.telephone || "—"}</dd>
-              <dt>Fax</dt><dd>{c.fax || "—"}</dd>
-              <dt>Email</dt><dd>{c.email || "—"}</dd>
-              <dt>Website</dt><dd>{c.website || "—"}</dd>
-            </dl>
-          </div>
-          <div className="detail-card">
-            <h3>Address</h3>
-            <dl>
-              {[c.address_line_1, c.address_line_2, c.address_line_3, c.address_line_4].filter(Boolean).map((l, i) => (
-                [<dt key={`k${i}`}>{i === 0 ? "Address" : ""}</dt>, <dd key={`v${i}`}>{l}</dd>]
-              ))}
-              <dt>Postcode</dt><dd>{c.postcode || "—"}</dd>
-            </dl>
-          </div>
-          <div className="detail-card">
-            <h3>Financials {riskData && (
-              <span className={`risk-badge risk-${riskData.band}`} title={`Credit risk score: ${riskData.score}/100`}>
-                Risk {riskData.score}
-              </span>
-            )}</h3>
-            <dl>
-              <dt>Credit Limit</dt><dd>{fmtGbp(c.credit_limit_gbp)}</dd>
-              <dt>Balance</dt><dd>{fmtGbp(c.current_balance_gbp)}</dd>
-              <dt>SO Balance</dt><dd>{fmtGbp(c.sales_order_balance_gbp)}</dd>
-              <dt>Invoice Balance</dt><dd>{fmtGbp(c.invoice_balance_gbp)}</dd>
-              <dt>Sales MTD</dt><dd>{fmtGbp(c.sales_mtd_gbp)}</dd>
-              <dt>Sales YTD</dt><dd>{fmtGbp(c.sales_ytd_gbp)}</dd>
-              <dt>Sales Last Year</dt><dd>{fmtGbp(c.sales_last_year_gbp)}</dd>
-            </dl>
-            {riskData && (
-              <details className="risk-detail">
-                <summary>Risk factors <button className="link-btn" onClick={e => { e.preventDefault(); recalcRisk() }} disabled={recalcBusy}>{recalcBusy ? "…" : "Recalculate"}</button></summary>
-                <ul className="risk-factors">
-                  {Object.entries(riskData.factors).map(([k, v]) => (
-                    <li key={k}><code>{k}</code>: {String(v)}</li>
-                  ))}
-                  {Object.keys(riskData.factors).length === 0 && <li>No risk factors</li>}
-                </ul>
-              </details>
-            )}
-          </div>
-          <div className="detail-card">
-            <h3>Account <button className="link-btn" onClick={() => { setEditCredit(p => !p); setCMsg(null) }}>{editCredit ? "cancel" : "edit"}</button></h3>
-            {editCredit ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ width: "8rem" }}>Hold status</span>
-                  <select value={cHold} onChange={e => setCHold(e.target.value as "" | "hold" | "super")}>
-                    <option value="">Active</option>
-                    <option value="hold">Hold</option>
-                    <option value="super">Super Hold</option>
-                  </select>
-                </label>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ width: "8rem" }}>Hold reason</span>
-                  <input value={cReason} onChange={e => setCReason(e.target.value)} placeholder={c.hold_reason || "—"} style={{ width: "12rem" }} />
-                </label>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ width: "8rem" }}>Credit limit £</span>
-                  <input type="number" step="0.01" value={cLimit} onChange={e => setCLimit(e.target.value)} placeholder={String(c.credit_limit_gbp ?? "")} style={{ width: "8rem" }} />
-                </label>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ width: "8rem" }}>Pay terms</span>
-                  <input value={cTerms} onChange={e => setCTerms(e.target.value)} placeholder={c.terms || "—"} style={{ width: "8rem" }} />
-                </label>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ width: "8rem" }}>Pay days</span>
-                  <input type="number" value={cDays} onChange={e => setCDays(e.target.value)} placeholder={String(c.payment_due_days ?? "")} style={{ width: "5rem" }} />
-                </label>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
-                  <span style={{ width: "8rem", paddingTop: "0.2rem" }}>Notes</span>
-                  <textarea value={cNotes} onChange={e => setCNotes(e.target.value)} placeholder={c.notes || "—"} style={{ width: "14rem", height: "4rem", resize: "vertical" }} />
-                </label>
-                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                  <span style={{ width: "8rem" }}>Accounting ref</span>
-                  <input value={cAccRef} onChange={e => setCAccRef(e.target.value)} placeholder={c.accounting_ref || "—"} style={{ width: "10rem" }} />
-                </label>
-                <button className="action-btn" onClick={saveCredit} disabled={cBusy} style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}>
-                  {cBusy ? "Saving…" : "Save"}
-                </button>
-                {cMsg && <p style={{ fontSize: "0.8rem" }}>{cMsg}</p>}
+        {(() => {
+          const limit = c.credit_limit_gbp
+          const bal = c.current_balance_gbp ?? 0
+          const avail = limit != null ? limit - bal : null
+          const util = limit ? Math.min(100, (bal / limit) * 100) : 0
+          const utilPct = limit ? Math.round((bal / limit) * 1000) / 10 : 0
+          const initials = c.name ? c.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() : "—"
+          const Empty = <span className="is-empty">Not set</span>
+          return (
+            <>
+              <div className="cust-hero">
+                <div className="cust-hero__mono">{initials}</div>
+                <div>
+                  <h1 className="cust-hero__name">{c.name || c.account_code}</h1>
+                  <div className="cust-hero__sub">
+                    <span className="codechip">{c.account_code}</span>
+                    <Badge value={c.on_hold ? (c.on_super_hold ? "Super Hold" : "Hold") : "Active"} />
+                    {c.terms && <><span className="sep">·</span><span>{c.terms}</span></>}
+                    {c.website && <><span className="sep">·</span><span>{c.website}</span></>}
+                  </div>
+                </div>
+                <div className="cust-hero__acts">
+                  <a href={`#/${company}/statement/${encodeURIComponent(c.account_code)}`} className="action-btn" style={{ textDecoration: "none" }}>Account Statement</a>
+                  <button className="action-btn" onClick={() => { setEditCredit(p => !p); setCMsg(null) }}>{editCredit ? "Cancel edit" : "Edit account"}</button>
+                </div>
               </div>
-            ) : (
-            <dl>
-              <dt>Code</dt><dd><code>{c.account_code}</code></dd>
-              <dt>Status</dt><dd><Badge value={c.on_hold ? (c.on_super_hold ? "Super Hold" : "Hold") : "Active"} /></dd>
-              {c.hold_reason && [<dt key="hr-k">Hold Reason</dt>, <dd key="hr-v">{c.hold_reason}</dd>]}
-              <dt>Terms</dt><dd>{c.terms || "—"}</dd>
-              <dt>Pay Days</dt><dd>{c.payment_due_days ?? "—"}</dd>
-              <dt>VAT Code</dt><dd>{c.vat_code || "—"}</dd>
-              <dt>Currency</dt><dd>{c.currency || "—"}</dd>
-              <dt>Price Band</dt><dd>{c.price_band || "—"}</dd>
-              <dt>Opened</dt><dd>{fmtDate(c.account_opened)}</dd>
-              {c.accounting_ref && [<dt key="ar-k">Accounting ref</dt>, <dd key="ar-v">{c.accounting_ref}</dd>]}
-              {tStatus?.current_terms && <>
-                <dt>Sale T&Cs</dt><dd>
-                  {tStatus.accepted
-                    ? <span className="badge badge--pass">Accepted v{tStatus.current_terms.version} · {fmtDate(tStatus.latest_acceptance?.accepted_at?.slice(0,10))}</span>
-                    : <span className="badge badge--fail">Not accepted — <a href={`#/${company}/terms`}>v{tStatus.current_terms.version} pending</a></span>}
-                </dd>
-              </>}
-            </dl>
-            )}
-          </div>
-        </div>
-        <div style={{ marginTop: "1.25rem" }}>
-          <h3 style={{ fontSize: "0.9rem", margin: "0 0 0.5rem" }}>Named contacts</h3>
-          {([1, 2] as const).map(seq => (
-            <CustomerContactRow key={seq} company={company} accountCode={c.account_code}
-              seq={seq} existing={c.contacts?.find(ct => ct.seq === seq)}
-              onSaved={() => setCRev(r => r + 1)} />
-          ))}
-        </div>
-        {c.notes && (
-          <section style={{ marginTop: "1.25rem", background: "var(--color-card-bg, #f9f9f9)", padding: "0.75rem 1rem", borderRadius: "4px", fontSize: "0.9rem" }}>
-            <strong>Notes:</strong> {c.notes}
-          </section>
-        )}
-        <div style={{ marginTop: "1rem", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-          <a href={`#/${company}/statement/${encodeURIComponent(c.account_code)}`} className="action-btn" style={{ display: "inline-block", textDecoration: "none" }}>Account Statement</a>
-          <RiskScoreBadge company={company} account={c.account_code} />
-        </div>
-        {custOrders && custOrders.length > 0 && (
-          <section style={{ marginTop: "1.5rem" }}>
-            <h3 style={{ marginBottom: "0.5rem" }}>Recent Orders</h3>
-            <table className="data-table">
-              <thead><tr><th>Order</th><th>Date</th><th>Delivery</th><th>Ref</th><th>Status</th><th style={{ textAlign: "right" }}>Total</th></tr></thead>
-              <tbody>
-                {custOrders.map(o => (
-                  <tr key={o.order_no}>
-                    <td><a href={`#/${company}/sales-orders/${o.order_no}`}>{o.order_no}</a></td>
-                    <td>{fmtDate(o.order_date)}</td>
-                    <td>{fmtDate(o.delivery_date)}</td>
-                    <td>{o.customer_ref || "—"}</td>
-                    <td><Badge value={o.status ?? ""} /></td>
-                    <td style={{ textAlign: "right" }}>{fmtGbp(o.total_gbp)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
+
+              <div className="kpi-grid">
+                <div className="kpi">
+                  <div className="kpi__k"><span className="kpi-ic kpi-ic--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg></span>Credit limit</div>
+                  <div className="kpi__v">{fmtGbp(c.credit_limit_gbp)}</div>
+                  <div className="kpi__meta">Account {c.account_code}</div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi__k"><span className="kpi-ic kpi-ic--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>Current balance</div>
+                  <div className="kpi__v">{fmtGbp(c.current_balance_gbp)}</div>
+                  <div className="kpi-bar"><i style={{ width: `${util}%` }} /></div>
+                  <div className="kpi__meta">{limit ? `${utilPct}% of credit limit used` : "No credit limit set"}</div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi__k"><span className="kpi-ic kpi-ic--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" /></svg></span>Available credit</div>
+                  <div className="kpi__v">{avail != null ? fmtGbp(avail) : Empty}</div>
+                  <div className="kpi__meta">Invoice balance {fmtGbp(c.invoice_balance_gbp)}</div>
+                </div>
+                <div className="kpi">
+                  <div className="kpi__k"><span className="kpi-ic kpi-ic--violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5z" /></svg></span>Risk score</div>
+                  {riskData ? (() => {
+                    const col = riskData.band === "green" ? "var(--green)" : riskData.band === "red" ? "var(--red)" : "var(--warning)"
+                    const label = riskData.band === "green" ? "Low risk" : riskData.band === "red" ? "High risk" : "Medium risk"
+                    return (
+                      <div className="risk-ring">
+                        <div className="risk-ring__dial" style={{ background: `conic-gradient(${col} ${riskData.score}%, var(--border) 0)` }}><i style={{ color: col }}>{riskData.score}</i></div>
+                        <div>
+                          <div className="risk-ring__t" style={{ color: col }}>{label}</div>
+                          <div className="risk-ring__s">{riskData.score} / 100 · <button className="link-btn" onClick={e => { e.preventDefault(); recalcRisk() }} disabled={recalcBusy}>{recalcBusy ? "…" : "Recalculate"}</button></div>
+                        </div>
+                      </div>
+                    )
+                  })() : <div className="kpi__meta" style={{ marginTop: "0.5rem" }}>No score yet · <button className="link-btn" onClick={e => { e.preventDefault(); recalcRisk() }} disabled={recalcBusy}>{recalcBusy ? "…" : "Calculate"}</button></div>}
+                </div>
+              </div>
+
+              <div className="cust-cols">
+                <div className="cust-stack">
+                  <div className="cust-card">
+                    <div className="cust-card__title">Financial summary</div>
+                    <div className="dl2">
+                      <div className="r"><span className="lab">Sales order balance</span><span className="val">{fmtGbp(c.sales_order_balance_gbp)}</span></div>
+                      <div className="r"><span className="lab">Invoice balance</span><span className="val">{fmtGbp(c.invoice_balance_gbp)}</span></div>
+                      <div className="r"><span className="lab">Sales month to date</span><span className="val">{c.sales_mtd_gbp != null ? fmtGbp(c.sales_mtd_gbp) : <span className="is-empty">Not recorded</span>}</span></div>
+                      <div className="r"><span className="lab">Sales year to date</span><span className="val">{c.sales_ytd_gbp != null ? fmtGbp(c.sales_ytd_gbp) : <span className="is-empty">Not recorded</span>}</span></div>
+                      <div className="r"><span className="lab">Sales last year</span><span className="val">{c.sales_last_year_gbp != null ? fmtGbp(c.sales_last_year_gbp) : <span className="is-empty">No history</span>}</span></div>
+                    </div>
+                    {riskData && Object.keys(riskData.factors).length > 0 && (
+                      <details className="risk-detail" style={{ marginTop: "0.7rem" }}>
+                        <summary>Risk factors</summary>
+                        <ul className="risk-factors">
+                          {Object.entries(riskData.factors).map(([k, v]) => (<li key={k}><code>{k}</code>: {String(v)}</li>))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+
+                  <div className="cust-card">
+                    <div className="cust-card__title">Recent orders</div>
+                    {custOrders && custOrders.length > 0 ? (
+                      <div className="cust-orders">
+                        <table className="data-table">
+                          <thead><tr><th>Order</th><th>Date</th><th>Delivery</th><th>Ref</th><th>Status</th><th style={{ textAlign: "right" }}>Total</th></tr></thead>
+                          <tbody>
+                            {custOrders.map(o => (
+                              <tr key={o.order_no}>
+                                <td><a href={`#/${company}/sales-orders/${o.order_no}`}>{o.order_no}</a></td>
+                                <td>{fmtDate(o.order_date)}</td>
+                                <td>{o.delivery_date ? fmtDate(o.delivery_date) : <span className="is-empty">Not scheduled</span>}</td>
+                                <td>{o.customer_ref || <span className="is-empty">—</span>}</td>
+                                <td><Badge value={o.status ?? ""} /></td>
+                                <td style={{ textAlign: "right" }}>{fmtGbp(o.total_gbp)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="kpi__meta">No orders yet.</p>}
+                  </div>
+                </div>
+
+                <div className="cust-stack">
+                  <div className="cust-card">
+                    <div className="cust-card__title">Contact</div>
+                    <div className="clist2">
+                      <div className="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" /></svg>{c.telephone ? <span className="ctxt">{c.telephone}</span> : <span className="is-empty">No phone on file</span>}</div>
+                      {c.fax && <div className="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18h12v4H6zM6 14h12a2 2 0 0 1 2 2v2H4v-2a2 2 0 0 1 2-2z" /></svg><span className="ctxt">{c.fax}</span></div>}
+                      <div className="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 6L2 7" /></svg>{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : <span className="is-empty">No email on file</span>}</div>
+                      <div className="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20" /></svg>{c.website ? <a href={c.website.startsWith("http") ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer">{c.website}</a> : <span className="is-empty">No website</span>}</div>
+                    </div>
+                  </div>
+
+                  <div className="cust-card">
+                    <div className="cust-card__title">Address</div>
+                    {(() => {
+                      const lines = [c.address_line_1, c.address_line_2, c.address_line_3, c.address_line_4, c.postcode].filter(Boolean)
+                      return lines.length ? (
+                        <div className="clist2"><div className="ci" style={{ alignItems: "flex-start" }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginTop: "1px" }}><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg><span className="ctxt" style={{ fontWeight: 500, lineHeight: 1.55 }}>{lines.map((l, i) => <span key={i} style={{ display: "block" }}>{l}</span>)}</span></div></div>
+                      ) : <span className="is-empty">No address on file</span>
+                    })()}
+                  </div>
+
+                  <div className="cust-card">
+                    <div className="cust-card__title">Account <button className="link-btn" onClick={() => { setEditCredit(p => !p); setCMsg(null) }}>{editCredit ? "cancel" : "edit"}</button></div>
+                    {editCredit ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ width: "8rem" }}>Hold status</span>
+                          <select value={cHold} onChange={e => setCHold(e.target.value as "" | "hold" | "super")}>
+                            <option value="">Active</option>
+                            <option value="hold">Hold</option>
+                            <option value="super">Super Hold</option>
+                          </select>
+                        </label>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ width: "8rem" }}>Hold reason</span>
+                          <input value={cReason} onChange={e => setCReason(e.target.value)} placeholder={c.hold_reason || "—"} style={{ width: "12rem" }} />
+                        </label>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ width: "8rem" }}>Credit limit £</span>
+                          <input type="number" step="0.01" value={cLimit} onChange={e => setCLimit(e.target.value)} placeholder={String(c.credit_limit_gbp ?? "")} style={{ width: "8rem" }} />
+                        </label>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ width: "8rem" }}>Pay terms</span>
+                          <input value={cTerms} onChange={e => setCTerms(e.target.value)} placeholder={c.terms || "—"} style={{ width: "8rem" }} />
+                        </label>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ width: "8rem" }}>Pay days</span>
+                          <input type="number" value={cDays} onChange={e => setCDays(e.target.value)} placeholder={String(c.payment_due_days ?? "")} style={{ width: "5rem" }} />
+                        </label>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                          <span style={{ width: "8rem", paddingTop: "0.2rem" }}>Notes</span>
+                          <textarea value={cNotes} onChange={e => setCNotes(e.target.value)} placeholder={c.notes || "—"} style={{ width: "14rem", height: "4rem", resize: "vertical" }} />
+                        </label>
+                        <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ width: "8rem" }}>Accounting ref</span>
+                          <input value={cAccRef} onChange={e => setCAccRef(e.target.value)} placeholder={c.accounting_ref || "—"} style={{ width: "10rem" }} />
+                        </label>
+                        <button className="action-btn" onClick={saveCredit} disabled={cBusy} style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}>
+                          {cBusy ? "Saving…" : "Save"}
+                        </button>
+                        {cMsg && <p style={{ fontSize: "0.8rem" }}>{cMsg}</p>}
+                      </div>
+                    ) : (
+                      <div className="dl2">
+                        <div className="r"><span className="lab">Code</span><span className="val"><span className="codechip">{c.account_code}</span></span></div>
+                        <div className="r"><span className="lab">Status</span><span className="val"><Badge value={c.on_hold ? (c.on_super_hold ? "Super Hold" : "Hold") : "Active"} /></span></div>
+                        {c.hold_reason && <div className="r"><span className="lab">Hold reason</span><span className="val">{c.hold_reason}</span></div>}
+                        <div className="r"><span className="lab">Terms</span><span className="val">{c.terms || Empty}</span></div>
+                        <div className="r"><span className="lab">Pay days</span><span className="val">{c.payment_due_days ?? Empty}</span></div>
+                        <div className="r"><span className="lab">VAT code</span><span className="val">{c.vat_code || Empty}</span></div>
+                        <div className="r"><span className="lab">Currency</span><span className="val">{c.currency || Empty}</span></div>
+                        <div className="r"><span className="lab">Price band</span><span className="val">{c.price_band || Empty}</span></div>
+                        <div className="r"><span className="lab">Opened</span><span className="val">{c.account_opened ? fmtDate(c.account_opened) : Empty}</span></div>
+                        {c.accounting_ref && <div className="r"><span className="lab">Accounting ref</span><span className="val">{c.accounting_ref}</span></div>}
+                        {tStatus?.current_terms && <div className="r"><span className="lab">Sale T&amp;Cs</span><span className="val">{tStatus.accepted ? <span className="badge badge--pass">Accepted v{tStatus.current_terms.version} · {fmtDate(tStatus.latest_acceptance?.accepted_at?.slice(0, 10))}</span> : <span className="badge badge--fail">Not accepted — <a href={`#/${company}/terms`}>v{tStatus.current_terms.version} pending</a></span>}</span></div>}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="cust-card">
+                    <div className="cust-card__title">Named contacts</div>
+                    {([1, 2] as const).map(seq => (
+                      <CustomerContactRow key={seq} company={company} accountCode={c.account_code}
+                        seq={seq} existing={c.contacts?.find(ct => ct.seq === seq)}
+                        onSaved={() => setCRev(r => r + 1)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {c.notes && (
+                <section className="cust-card" style={{ marginTop: "1.1rem" }}>
+                  <div className="cust-card__title">Notes</div>
+                  <div style={{ fontSize: "0.88rem" }}>{c.notes}</div>
+                </section>
+              )}
+            </>
+          )
+        })()}
         {custInvoices && custInvoices.length > 0 && (
           <section style={{ marginTop: "1.5rem" }}>
             <h3 style={{ marginBottom: "0.5rem" }}>Recent Invoices</h3>
@@ -1675,52 +1734,73 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
         <a href={`#/${company}/sales-orders`} className="back-link">← Sales Orders</a>
         <div className="so-detail-layout">
         <div className="so-detail-main">
-        <div style={{ marginBottom: "0.75rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          <button className="action-btn" onClick={async () => { try { window.open(await api.sales.pdf(company, o.order_no), "_blank") } catch (e) { alert(String(e)) } }}>PDF</button>
-          {o.status === "confirmed" && <button className="action-btn" onClick={async () => { try { const r = await api.soWizard.ackPdfUrl(company, o.order_no); window.open(r.url, "_blank") } catch (e) { alert(String(e)) } }}>Ack PDF</button>}
-          {o.status != null && ["open","confirmed"].includes(o.status) && <>
-            <button onClick={cancelOrder}>Cancel order</button>
-            {cancelMsg && <span className="badge">{cancelMsg}</span>}
-          </>}
-        </div>
-        <div className="detail-grid">
-          <div className="detail-card">
-            <h3>Order</h3>
-            <dl>
-              <dt>Order No</dt><dd><code>{o.order_no}</code></dd>
-              <dt>Customer</dt><dd>
-                <a href={`#/${company}/customers/${encodeURIComponent(o.customer_account)}`}>
-                  {o.customer_name || o.customer_account}
-                </a>
-              </dd>
-              <dt>Ref</dt><dd>{o.customer_ref || "—"}</dd>
-              <dt>Order Date</dt><dd>{fmtDate(o.order_date_serial)}</dd>
-              <dt>Delivery</dt><dd>{fmtDate(o.delivery_date_serial)}</dd>
-              <dt>Status</dt><dd><DerivedStatusBadge status={o.derived_status} /></dd>
-            </dl>
+        <div className="cust-hero">
+          <div className="cust-hero__mono">{(o.order_no || "?").slice(0, 2).toUpperCase()}</div>
+          <div>
+            <h1 className="cust-hero__name">{o.order_no}</h1>
+            <div className="cust-hero__sub">
+              <a href={`#/${company}/customers/${encodeURIComponent(o.customer_account)}`}>{o.customer_name || o.customer_account}</a>
+              <DerivedStatusBadge status={o.derived_status} />
+              {o.customer_ref && <><span className="sep">·</span><span>Ref {o.customer_ref}</span></>}
+              <span className="sep">·</span><span>{fmtDate(o.order_date_serial)}</span>
+            </div>
           </div>
-          <div className="detail-card">
-            <h3>Amounts</h3>
-            <dl>
-              <dt>Net</dt><dd>{pence(o.net_amount)}</dd>
-              <dt>VAT</dt><dd>{pence(o.vat)}</dd>
-              <dt>Total</dt><dd>{pence(o.total_amount)}</dd>
-            </dl>
-            {o.order_notes && <p style={{fontSize:".85rem", marginTop:".5rem"}}>{o.order_notes}</p>}
+          <div className="cust-hero__acts">
+            <button className="action-btn" onClick={async () => { try { window.open(await api.sales.pdf(company, o.order_no), "_blank") } catch (e) { alert(String(e)) } }}>PDF</button>
+            {o.status === "confirmed" && <button className="action-btn" onClick={async () => { try { const r = await api.soWizard.ackPdfUrl(company, o.order_no); window.open(r.url, "_blank") } catch (e) { alert(String(e)) } }}>Ack PDF</button>}
+            {o.status != null && ["open", "confirmed"].includes(o.status) && <button className="btn btn-outline" onClick={cancelOrder}>Cancel order</button>}
+          </div>
+        </div>
+        {cancelMsg && <p className="gate-msg gate-msg--block">{cancelMsg}</p>}
+
+        <div className="kpi-grid">
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>Net</div>
+            <div className="kpi__v">{pence(o.net_amount)}</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg></span>VAT</div>
+            <div className="kpi__v">{pence(o.vat)}</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" /></svg></span>Total</div>
+            <div className="kpi__v">{pence(o.total_amount)}</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg></span>Lines</div>
+            <div className="kpi__v">{o.lines.length}</div>
+            <div className="kpi__meta">Order lines</div>
+          </div>
+        </div>
+
+        <div className="detail-grid">
+          <div className="cust-card">
+            <div className="cust-card__title">Order</div>
+            <div className="dl2">
+              <div className="r"><span className="lab">Order no</span><span className="val"><span className="codechip">{o.order_no}</span></span></div>
+              <div className="r"><span className="lab">Customer</span><span className="val"><a href={`#/${company}/customers/${encodeURIComponent(o.customer_account)}`}>{o.customer_name || o.customer_account}</a></span></div>
+              <div className="r"><span className="lab">Ref</span><span className="val">{o.customer_ref || <span className="is-empty">—</span>}</span></div>
+              <div className="r"><span className="lab">Order date</span><span className="val">{fmtDate(o.order_date_serial)}</span></div>
+              <div className="r"><span className="lab">Delivery</span><span className="val">{o.delivery_date_serial ? fmtDate(o.delivery_date_serial) : <span className="is-empty">Not scheduled</span>}</span></div>
+              <div className="r"><span className="lab">Status</span><span className="val"><DerivedStatusBadge status={o.derived_status} /></span></div>
+            </div>
+          </div>
+          <div className="cust-card">
+            <div className="cust-card__title">Amounts</div>
+            <div className="dl2">
+              <div className="r"><span className="lab">Net</span><span className="val">{pence(o.net_amount)}</span></div>
+              <div className="r"><span className="lab">VAT</span><span className="val">{pence(o.vat)}</span></div>
+              <div className="r"><span className="lab">Total</span><span className="val">{pence(o.total_amount)}</span></div>
+            </div>
+            {o.order_notes && <p style={{ fontSize: ".85rem", marginTop: ".6rem", color: "var(--text-muted)" }}>{o.order_notes}</p>}
           </div>
           {(o.carriage_method || o.delivery_address_line_1 || o.delivery_postcode) && (
-            <div className="detail-card">
-              <h3>Delivery</h3>
-              <dl>
-                {o.carriage_method && <><dt>Carriage</dt><dd>{o.carriage_method}</dd></>}
-                {(o.delivery_address_line_1 || o.delivery_postcode) && <>
-                  <dt>Address</dt>
-                  <dd>
-                    {[o.delivery_address_line_1, o.delivery_address_line_2, o.delivery_address_line_3, o.delivery_address_line_4, o.delivery_postcode]
-                      .filter(Boolean).join(", ")}
-                  </dd>
-                </>}
-              </dl>
+            <div className="cust-card">
+              <div className="cust-card__title">Delivery</div>
+              <div className="dl2">
+                {o.carriage_method && <div className="r"><span className="lab">Carriage</span><span className="val">{o.carriage_method}</span></div>}
+                {(o.delivery_address_line_1 || o.delivery_postcode) && <div className="r"><span className="lab">Address</span><span className="val">{[o.delivery_address_line_1, o.delivery_address_line_2, o.delivery_address_line_3, o.delivery_address_line_4, o.delivery_postcode].filter(Boolean).join(", ")}</span></div>}
+              </div>
             </div>
           )}
         </div>
@@ -2526,64 +2606,92 @@ export function StockDetail({ company, id }: { company: string; id: string }) {
     <DetailShell loading={loading} error={error}>
       {s && <>
         <a href={`#/${company}/stock`} className="back-link">← Stock</a>
-        <div className="detail-grid">
-          <div className="detail-card">
-            <h3>Identity</h3>
-            <dl>
-              <dt>Code</dt><dd><code>{s.account_code}</code></dd>
-              <dt>Description</dt><dd>{s.description_1 || "—"}</dd>
-              <dt>Short Desc</dt><dd>{s.short_description || "—"}</dd>
-              <dt>Material</dt><dd>{label(1, s.attribute_1)}</dd>
-              <dt>Section</dt><dd>{label(2, s.attribute_2)}</dd>
-              <dt>Grade</dt><dd>{label(3, s.attribute_3)}</dd>
-              <dt>Finish</dt><dd>{label(4, s.attribute_4)}</dd>
-              <dt>Status</dt><dd>
-                <Badge value={s.status} />
-                {s.status === "A"
-                  ? <button className="link-btn" style={{ marginLeft: "0.5rem" }}
-                      onClick={async () => { await api.stock.patch(company, s.account_code, { status: "D" }); setRev(r => r + 1) }}>Deactivate</button>
-                  : <button className="link-btn" style={{ marginLeft: "0.5rem" }}
-                      onClick={async () => { await api.stock.patch(company, s.account_code, { status: "A" }); setRev(r => r + 1) }}>Activate</button>}
-              </dd>
-              <dt>Warehouse</dt><dd>{s.warehouse || "—"}</dd>
-            </dl>
+        <div className="cust-hero">
+          <div className="cust-hero__mono">{(s.account_code || "?").slice(0, 2).toUpperCase()}</div>
+          <div>
+            <h1 className="cust-hero__name">{s.description_1 || s.account_code}</h1>
+            <div className="cust-hero__sub">
+              <span className="codechip">{s.account_code}</span>
+              <Badge value={s.status} />
+              {s.warehouse && <><span className="sep">·</span><span>{s.warehouse}</span></>}
+              {label(3, s.attribute_3) && <><span className="sep">·</span><span>{label(3, s.attribute_3)}</span></>}
+            </div>
           </div>
-          <div className="detail-card">
-            <h3>Stock Levels</h3>
-            <dl>
-              <dt>In Stock</dt><dd>{stk(s.stock_qty)} {s.stock_unit_1 || ""}</dd>
-              <dt>On Order</dt><dd>{stk(s.po_qty)} {s.stock_unit_1 || ""}</dd>
-              <dt>Free Stock</dt><dd>{stk(s.free_stock)} {s.stock_unit_1 || ""}</dd>
-              <dt>On SO</dt><dd>{stk(s.so_qty)} {s.stock_unit_1 || ""}</dd>
-              <dt>Unit</dt><dd>{s.stock_unit_1 || "—"} (£/{s.stock_unit_1 || "Kg"})</dd>
-              <dt>Weight / m</dt><dd>{s.weight_per_metre ? `${s.weight_per_metre} kg/m` : "—"}</dd>
-            </dl>
+          <div className="cust-hero__acts">
+            {s.status === "A"
+              ? <button className="action-btn" onClick={async () => { await api.stock.patch(company, s.account_code, { status: "D" }); setRev(r => r + 1) }}>Deactivate</button>
+              : <button className="action-btn" onClick={async () => { await api.stock.patch(company, s.account_code, { status: "A" }); setRev(r => r + 1) }}>Activate</button>}
           </div>
-          <div className="detail-card">
-            <h3>Pricing <button className="link-btn" onClick={() => { setEditPrice(p => !p); setPriceMsg(null) }}>{editPrice ? "cancel" : "edit"}</button></h3>
-            {!editPrice ? (
-              <dl>
-                <dt>Cost</dt><dd>{s.cost_price != null ? `£${Number(s.cost_price).toFixed(4)}` : "—"}</dd>
-                <dt>List</dt><dd>{s.list_price != null ? `£${Number(s.list_price).toFixed(4)}` : "—"}</dd>
-                <dt>Sell</dt><dd>{s.sell_price != null ? `£${Number(s.sell_price).toFixed(4)}` : "—"}</dd>
-                <dt>Reorder level</dt><dd>{s.reorder_level != null ? stk(s.reorder_level) : "—"}</dd>
-                <dt>Reorder qty</dt><dd>{s.reorder_qty != null ? stk(s.reorder_qty) : "—"}</dd>
-              </dl>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
-                {([["Cost £", pCost, setPCost], ["Sell £", pSell, setPSell], ["List £", pList, setPList],
-                   ["Reorder level", pReorderLevel, setPReorderLevel], ["Reorder qty", pReorderQty, setPReorderQty]] as [string, string, (v: string) => void][]).map(([label, val, set]) => (
-                  <label key={label} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <span style={{ width: "8rem" }}>{label}</span>
-                    <input type="number" step="0.0001" value={val} onChange={e => set(e.target.value)} style={{ width: "8rem" }} />
-                  </label>
-                ))}
-                <button className="action-btn" onClick={savePrices} disabled={priceBusy} style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}>
-                  {priceBusy ? "Saving…" : "Save prices"}
-                </button>
-                {priceMsg && <p style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>{priceMsg}</p>}
+        </div>
+
+        <div className="kpi-grid">
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8 12 3 3 8v8l9 5 9-5z" /><path d="M3 8l9 5 9-5" /></svg></span>In stock</div>
+            <div className="kpi__v">{stk(s.stock_qty)} <span style={{ fontSize: ".8rem", color: "var(--text-muted)", fontWeight: 500 }}>{s.stock_unit_1 || ""}</span></div>
+            <div className="kpi__meta">On hand</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" /></svg></span>Free stock</div>
+            <div className="kpi__v">{stk(s.free_stock)} <span style={{ fontSize: ".8rem", color: "var(--text-muted)", fontWeight: 500 }}>{s.stock_unit_1 || ""}</span></div>
+            <div className="kpi__meta">Available to sell</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 3h13v13H1z" /><path d="M14 8h4l3 3v5h-7" /><circle cx="5.5" cy="18.5" r="2" /><circle cx="18.5" cy="18.5" r="2" /></svg></span>On order</div>
+            <div className="kpi__v">{stk(s.po_qty)} <span style={{ fontSize: ".8rem", color: "var(--text-muted)", fontWeight: 500 }}>{s.stock_unit_1 || ""}</span></div>
+            <div className="kpi__meta">Incoming POs</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" /></svg></span>On sales orders</div>
+            <div className="kpi__v">{stk(s.so_qty)} <span style={{ fontSize: ".8rem", color: "var(--text-muted)", fontWeight: 500 }}>{s.stock_unit_1 || ""}</span></div>
+            <div className="kpi__meta">Allocated to SOs</div>
+          </div>
+        </div>
+
+        <div className="cust-cols">
+          <div className="cust-stack">
+            <div className="cust-card">
+              <div className="cust-card__title">Identity</div>
+              <div className="dl2">
+                <div className="r"><span className="lab">Code</span><span className="val"><span className="codechip">{s.account_code}</span></span></div>
+                <div className="r"><span className="lab">Description</span><span className="val">{s.description_1 || <span className="is-empty">Not set</span>}</span></div>
+                <div className="r"><span className="lab">Short description</span><span className="val">{s.short_description || <span className="is-empty">Not set</span>}</span></div>
+                <div className="r"><span className="lab">Material</span><span className="val">{label(1, s.attribute_1) || <span className="is-empty">—</span>}</span></div>
+                <div className="r"><span className="lab">Section</span><span className="val">{label(2, s.attribute_2) || <span className="is-empty">—</span>}</span></div>
+                <div className="r"><span className="lab">Grade</span><span className="val">{label(3, s.attribute_3) || <span className="is-empty">—</span>}</span></div>
+                <div className="r"><span className="lab">Finish</span><span className="val">{label(4, s.attribute_4) || <span className="is-empty">—</span>}</span></div>
+                <div className="r"><span className="lab">Warehouse</span><span className="val">{s.warehouse || <span className="is-empty">Not set</span>}</span></div>
+                <div className="r"><span className="lab">Unit</span><span className="val">{s.stock_unit_1 || <span className="is-empty">—</span>}</span></div>
+                <div className="r"><span className="lab">Weight / m</span><span className="val">{s.weight_per_metre ? `${s.weight_per_metre} kg/m` : <span className="is-empty">—</span>}</span></div>
               </div>
-            )}
+            </div>
+          </div>
+          <div className="cust-stack">
+            <div className="cust-card">
+              <div className="cust-card__title">Pricing <button className="link-btn" onClick={() => { setEditPrice(p => !p); setPriceMsg(null) }}>{editPrice ? "cancel" : "edit"}</button></div>
+              {!editPrice ? (
+                <div className="dl2">
+                  <div className="r"><span className="lab">Cost</span><span className="val">{s.cost_price != null ? `£${Number(s.cost_price).toFixed(4)}` : <span className="is-empty">Not set</span>}</span></div>
+                  <div className="r"><span className="lab">List</span><span className="val">{s.list_price != null ? `£${Number(s.list_price).toFixed(4)}` : <span className="is-empty">Not set</span>}</span></div>
+                  <div className="r"><span className="lab">Sell</span><span className="val">{s.sell_price != null ? `£${Number(s.sell_price).toFixed(4)}` : <span className="is-empty">Not set</span>}</span></div>
+                  <div className="r"><span className="lab">Reorder level</span><span className="val">{s.reorder_level != null ? stk(s.reorder_level) : <span className="is-empty">—</span>}</span></div>
+                  <div className="r"><span className="lab">Reorder qty</span><span className="val">{s.reorder_qty != null ? stk(s.reorder_qty) : <span className="is-empty">—</span>}</span></div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
+                  {([["Cost £", pCost, setPCost], ["Sell £", pSell, setPSell], ["List £", pList, setPList],
+                     ["Reorder level", pReorderLevel, setPReorderLevel], ["Reorder qty", pReorderQty, setPReorderQty]] as [string, string, (v: string) => void][]).map(([plabel, val, set]) => (
+                    <label key={plabel} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <span style={{ width: "8rem" }}>{plabel}</span>
+                      <input type="number" step="0.0001" value={val} onChange={e => set(e.target.value)} style={{ width: "8rem" }} />
+                    </label>
+                  ))}
+                  <button className="action-btn" onClick={savePrices} disabled={priceBusy} style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}>
+                    {priceBusy ? "Saving…" : "Save prices"}
+                  </button>
+                  {priceMsg && <p style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>{priceMsg}</p>}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <StockItemBatches company={company} code={s.account_code} />
@@ -2891,55 +2999,84 @@ export function PurchaseOrderDetail({ company, id }: { company: string; id: stri
     <DetailShell loading={loading} error={error}>
       {o && <>
         <a href={`#/${company}/purchase-orders`} className="back-link">← Purchase Orders</a>
-        <div style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-          <button className="action-btn" onClick={async () => { try { window.open(await api.purchases.pdf(company, o.order_no), "_blank") } catch (e) { alert(String(e)) } }}>PDF</button>
-          <a className="action-btn" href={`#/${company}/grn/new?po=${encodeURIComponent(o.order_no)}`}>Receive goods</a>
-          {o.matched_status === "received" && (
-            <button onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { matched_status: "approved" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Approve invoice</button>
-          )}
-          {o.matched_status === "approved" && (
-            <button onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { matched_status: "paid" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Mark paid</button>
-          )}
-          {o.status !== "closed"
-            ? <button onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { po_status: "closed" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Close PO</button>
-            : <button onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { po_status: "open" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Reopen PO</button>}
+        <div className="cust-hero">
+          <div className="cust-hero__mono">{(o.order_no || "?").slice(0, 2).toUpperCase()}</div>
+          <div>
+            <h1 className="cust-hero__name">{o.order_no}</h1>
+            <div className="cust-hero__sub">
+              <a href={`#/${company}/suppliers/${encodeURIComponent(o.supplier_account)}`}>{o.supplier_name || o.supplier_account}</a>
+              <Badge value={o.status} />
+              {o.supplier_ref && <><span className="sep">·</span><span>Ref {o.supplier_ref}</span></>}
+              <span className="sep">·</span><span>{fmtDate(o.order_date_serial)}</span>
+            </div>
+          </div>
+          <div className="cust-hero__acts">
+            <button className="action-btn" onClick={async () => { try { window.open(await api.purchases.pdf(company, o.order_no), "_blank") } catch (e) { alert(String(e)) } }}>PDF</button>
+            <a className="action-btn" href={`#/${company}/grn/new?po=${encodeURIComponent(o.order_no)}`}>Receive goods</a>
+            {o.matched_status === "received" && (
+              <button className="btn btn-outline" onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { matched_status: "approved" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Approve invoice</button>
+            )}
+            {o.matched_status === "approved" && (
+              <button className="btn btn-outline" onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { matched_status: "paid" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Mark paid</button>
+            )}
+            {o.status !== "closed"
+              ? <button className="btn btn-outline" onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { po_status: "closed" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Close PO</button>
+              : <button className="btn btn-outline" onClick={async () => { try { await api.purchases.invoiceMatch(company, o.order_no, { po_status: "open" }); setRev(r => r + 1) } catch (e) { alert(String(e)) } }}>Reopen PO</button>}
+          </div>
         </div>
+
+        <div className="kpi-grid">
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>Net</div>
+            <div className="kpi__v">{pence(o.net_amount)}</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg></span>VAT</div>
+            <div className="kpi__v">{pence(o.vat)}</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" /></svg></span>Total</div>
+            <div className="kpi__v">{pence(o.total_amount)}</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi__k"><span className="kpi-ic kpi-ic--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg></span>Lines</div>
+            <div className="kpi__v">{o.lines.length}</div>
+            <div className="kpi__meta">Order lines</div>
+          </div>
+        </div>
+
         <div className="detail-grid">
-          <div className="detail-card">
-            <h3>Order</h3>
-            <dl>
-              <dt>Order No</dt><dd><code>{o.order_no}</code></dd>
-              <dt>Supplier</dt><dd>
-                <a href={`#/${company}/suppliers/${encodeURIComponent(o.supplier_account)}`}>
-                  {o.supplier_name || o.supplier_account}
-                </a>
-              </dd>
-              <dt>Ref</dt><dd>{o.supplier_ref || "—"}</dd>
-              <dt>Order Date</dt><dd>{fmtDate(o.order_date_serial)}</dd>
-              <dt>Deliver By</dt><dd>{fmtDate(o.deliver_by_serial)}</dd>
-              <dt>Status</dt><dd><Badge value={o.status} /></dd>
-            </dl>
+          <div className="cust-card">
+            <div className="cust-card__title">Order</div>
+            <div className="dl2">
+              <div className="r"><span className="lab">Order no</span><span className="val"><span className="codechip">{o.order_no}</span></span></div>
+              <div className="r"><span className="lab">Supplier</span><span className="val"><a href={`#/${company}/suppliers/${encodeURIComponent(o.supplier_account)}`}>{o.supplier_name || o.supplier_account}</a></span></div>
+              <div className="r"><span className="lab">Ref</span><span className="val">{o.supplier_ref || <span className="is-empty">—</span>}</span></div>
+              <div className="r"><span className="lab">Order date</span><span className="val">{fmtDate(o.order_date_serial)}</span></div>
+              <div className="r"><span className="lab">Deliver by</span><span className="val">{o.deliver_by_serial ? fmtDate(o.deliver_by_serial) : <span className="is-empty">Not set</span>}</span></div>
+              <div className="r"><span className="lab">Status</span><span className="val"><Badge value={o.status} /></span></div>
+            </div>
           </div>
-          <div className="detail-card">
-            <h3>Amounts</h3>
-            <dl>
-              <dt>Net</dt><dd>{pence(o.net_amount)}</dd>
-              <dt>VAT</dt><dd>{pence(o.vat)}</dd>
-              <dt>Total</dt><dd>{pence(o.total_amount)}</dd>
-            </dl>
-            {o.order_notes && <p style={{fontSize:".85rem", marginTop:".5rem"}}>{o.order_notes}</p>}
+          <div className="cust-card">
+            <div className="cust-card__title">Amounts</div>
+            <div className="dl2">
+              <div className="r"><span className="lab">Net</span><span className="val">{pence(o.net_amount)}</span></div>
+              <div className="r"><span className="lab">VAT</span><span className="val">{pence(o.vat)}</span></div>
+              <div className="r"><span className="lab">Total</span><span className="val">{pence(o.total_amount)}</span></div>
+            </div>
+            {o.order_notes && <p style={{ fontSize: ".85rem", marginTop: ".6rem", color: "var(--text-muted)" }}>{o.order_notes}</p>}
           </div>
-          <div className="detail-card">
-            <h3>Invoice</h3>
+          <div className="cust-card">
+            <div className="cust-card__title">Invoice</div>
             {o.supplier_invoice_no ? (
-              <dl>
-                <dt>Invoice No</dt><dd><code>{o.supplier_invoice_no}</code></dd>
-                <dt>Status</dt><dd><Badge value={o.matched_status || "received"} /></dd>
-                <dt>Net</dt><dd>{o.matched_net_amount ? fmtGbp(Number(o.matched_net_amount) / 100) : "—"}</dd>
-                <dt>VAT</dt><dd>{o.matched_vat_amount ? fmtGbp(Number(o.matched_vat_amount) / 100) : "—"}</dd>
-                {o.invoice_approved_by && <><dt>Approved by</dt><dd>{o.invoice_approved_by}{o.invoice_approved_at ? ` · ${o.invoice_approved_at.slice(0, 16).replace("T", " ")}` : ""}</dd></>}
-                {o.invoice_paid_at && <><dt>Paid at</dt><dd>{o.invoice_paid_at.slice(0, 16).replace("T", " ")}</dd></>}
-              </dl>
+              <div className="dl2">
+                <div className="r"><span className="lab">Invoice no</span><span className="val"><span className="codechip">{o.supplier_invoice_no}</span></span></div>
+                <div className="r"><span className="lab">Status</span><span className="val"><Badge value={o.matched_status || "received"} /></span></div>
+                <div className="r"><span className="lab">Net</span><span className="val">{o.matched_net_amount ? fmtGbp(Number(o.matched_net_amount) / 100) : <span className="is-empty">—</span>}</span></div>
+                <div className="r"><span className="lab">VAT</span><span className="val">{o.matched_vat_amount ? fmtGbp(Number(o.matched_vat_amount) / 100) : <span className="is-empty">—</span>}</span></div>
+                {o.invoice_approved_by && <div className="r"><span className="lab">Approved by</span><span className="val">{o.invoice_approved_by}{o.invoice_approved_at ? ` · ${o.invoice_approved_at.slice(0, 16).replace("T", " ")}` : ""}</span></div>}
+                {o.invoice_paid_at && <div className="r"><span className="lab">Paid at</span><span className="val">{o.invoice_paid_at.slice(0, 16).replace("T", " ")}</span></div>}
+              </div>
             ) : <p className="state-msg">No invoice recorded yet.</p>}
             <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
               <input value={invNo} onChange={e => setInvNo(e.target.value)} placeholder="Supplier inv no" style={{ width: "9rem" }} />
@@ -5267,9 +5404,9 @@ export function DeliveryNoteDetail({ company, id }: { company: string; id: strin
 
 function Panel({ label, value, href, alert }: { label: string; value: React.ReactNode; href?: string; alert?: boolean }) {
   const card = (
-    <div className="detail-card" style={{ borderLeft: alert ? "3px solid var(--fail, #c0392b)" : undefined }}>
-      <div style={{ fontSize: "1.8rem", fontWeight: 600 }}>{value}</div>
-      <div style={{ fontSize: "0.85rem", color: "var(--muted, #888)" }}>{label}</div>
+    <div className="detail-card" style={{ borderLeft: alert ? "3px solid var(--red)" : undefined }}>
+      <div style={{ fontSize: "1.6rem", fontWeight: 700, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", color: alert ? "var(--red)" : undefined }}>{value}</div>
+      <div style={{ fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--text-muted)", marginTop: "0.2rem" }}>{label}</div>
     </div>
   )
   return href ? <a href={href} style={{ textDecoration: "none", color: "inherit" }}>{card}</a> : card
@@ -7803,147 +7940,195 @@ export function SupplierDetailView({ company, id }: { company: string; id: strin
   return (
     <Shell loading={loading} error={error}>
       <a className="back-link" href={`#/${company}/suppliers`}>← Suppliers</a>
-      {s && <>
-        <Toolbar title={`${s.account_code} — ${s.name}`}>
-          {!editing && <button onClick={() => setEditing(true)}>Edit</button>}
-          {editing && <><button className="action-btn" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
-            <button onClick={() => { setEditing(false); setPatch({}) }}>Cancel</button></>}
-        </Toolbar>
-        {msg && <p className="gate-msg gate-msg--block">{msg}</p>}
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginTop: "1rem" }}>
-          <div>
-            <h3 style={{ fontSize: "0.9rem", margin: "0 0 0.5rem" }}>Company details</h3>
-            <table>
-              <tbody>
-                <tr><th>Name</th><td>{field("name")}</td></tr>
-                <tr><th>Type</th><td>
-                  {editing
-                    ? <select value={String(patch["supplier_type"] ?? s.supplier_type ?? "")}
-                        onChange={e => setPatch(p => ({ ...p, supplier_type: e.target.value }))}>
-                        <option value="">—</option>
-                        <option value="mill">Mill</option>
-                        <option value="stockholder">Stockholder</option>
-                        <option value="processor">Processor</option>
-                        <option value="subcontractor">Subcontractor</option>
-                        <option value="service">Service</option>
-                      </select>
-                    : <span>{s.supplier_type || "—"}</span>}
-                </td></tr>
-                <tr><th>Address</th><td>
-                  {[s.address_line_1, s.address_line_2, s.address_line_3, s.address_line_4, s.postcode].filter(Boolean).join(", ") || "—"}
-                </td></tr>
-                <tr><th>Telephone</th><td>{field("telephone")}</td></tr>
-                <tr><th>Email</th><td>{field("email")}</td></tr>
-                <tr><th>Website</th><td>{s.website ? <a href={s.website} target="_blank" rel="noreferrer">{s.website}</a> : "—"}</td></tr>
-                <tr><th>VAT No.</th><td>{s.vat_number || "—"}</td></tr>
-                <tr><th>Currency</th><td>{s.currency || "GBP"}</td></tr>
-                <tr><th>Accounting ref</th><td>{field("accounting_ref")}</td></tr>
-              </tbody>
-            </table>
+      {s && (() => {
+        const initials = s.name ? s.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() : "—"
+        const Empty = <span className="is-empty">Not set</span>
+        const addr = [s.address_line_1, s.address_line_2, s.address_line_3, s.address_line_4, s.postcode].filter(Boolean).join(", ")
+        return (
+        <>
+          <div className="cust-hero">
+            <div className="cust-hero__mono">{initials}</div>
+            <div>
+              <h1 className="cust-hero__name">{s.name}</h1>
+              <div className="cust-hero__sub">
+                <span className="codechip">{s.account_code}</span>
+                {s.approved_supplier && <span className="badge green"><span className="dot"></span>Approved</span>}
+                {s.on_hold && <Badge value="On hold" />}
+                {s.supplier_type && <><span className="sep">·</span><span>{s.supplier_type}</span></>}
+                {s.website && <><span className="sep">·</span><span>{s.website}</span></>}
+              </div>
+            </div>
+            <div className="cust-hero__acts">
+              {!editing && <button className="action-btn" onClick={() => setEditing(true)}>Edit supplier</button>}
+              {editing && <>
+                <button className="action-btn" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+                <button className="btn btn-outline" onClick={() => { setEditing(false); setPatch({}) }}>Cancel</button>
+              </>}
+            </div>
           </div>
-          <div>
-            <h3 style={{ fontSize: "0.9rem", margin: "0 0 0.5rem" }}>Approval & performance</h3>
-            <table>
-              <tbody>
-                <tr><th>Approved</th><td>
-                  {editing
-                    ? <select value={String(patch["approved_supplier"] ?? s.approved_supplier ?? false)}
-                        onChange={e => setPatch(p => ({ ...p, approved_supplier: e.target.value === "true" }))}>
-                        <option value="false">No</option><option value="true">Yes</option>
-                      </select>
-                    : <Badge value={s.approved_supplier ? "Yes" : "No"} />}
-                </td></tr>
-                <tr><th>Approval ref</th><td>{field("approval_ref")}</td></tr>
-                <tr><th>On hold</th><td>
-                  {editing
-                    ? <select value={String(patch["on_hold"] ?? s.on_hold ?? false)}
-                        onChange={e => setPatch(p => ({ ...p, on_hold: e.target.value === "true" }))}>
-                        <option value="false">No</option><option value="true">Yes</option>
-                      </select>
-                    : (s.on_hold ? <Badge value="On hold" /> : "—")}
-                </td></tr>
-                <tr><th>Hold reason</th><td>{field("hold_reason")}</td></tr>
-                <tr><th>Lead time (days)</th><td>
-                  {editing
-                    ? <input type="number" min={0} style={{ width: "6em" }}
-                        value={String(patch["lead_time_days"] ?? s.lead_time_days ?? "")}
-                        onChange={e => setPatch(p => ({ ...p, lead_time_days: e.target.value ? parseInt(e.target.value) : null }))} />
-                    : (s.lead_time_days ?? "—")}
-                </td></tr>
-                <tr><th>Delivery rating</th><td>
-                  {editing
-                    ? <select value={String(patch["delivery_rating"] ?? s.delivery_rating ?? "")}
-                        onChange={e => setPatch(p => ({ ...p, delivery_rating: e.target.value ? parseInt(e.target.value) : null }))}>
-                        <option value="">—</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    : (s.delivery_rating != null ? `${s.delivery_rating}/5` : "—")}
-                </td></tr>
-                <tr><th>Quality rating</th><td>
-                  {editing
-                    ? <select value={String(patch["quality_rating"] ?? s.quality_rating ?? "")}
-                        onChange={e => setPatch(p => ({ ...p, quality_rating: e.target.value ? parseInt(e.target.value) : null }))}>
-                        <option value="">—</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    : (s.quality_rating != null ? `${s.quality_rating}/5` : "—")}
-                </td></tr>
-                {perf && <>
-                  <tr><th>Total orders</th><td>{perf.total_orders}</td></tr>
-                  <tr><th>Overdue orders</th><td>{perf.overdue_orders > 0 ? <Badge value={String(perf.overdue_orders)} /> : "0"}</td></tr>
-                  <tr><th>Avg lead (days)</th><td>{perf.avg_lead_days ?? "—"}</td></tr>
-                  <tr><th>Total spend</th><td>{perf.total_spend_gbp != null ? fmtGbp(perf.total_spend_gbp) : "—"}</td></tr>
-                </>}
-              </tbody>
-            </table>
+          {msg && <p className="gate-msg gate-msg--block">{msg}</p>}
+
+          <div className="kpi-grid">
+            <div className="kpi">
+              <div className="kpi__k"><span className="kpi-ic kpi-ic--green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg></span>Total spend</div>
+              <div className="kpi__v">{perf?.total_spend_gbp != null ? fmtGbp(perf.total_spend_gbp) : Empty}</div>
+              <div className="kpi__meta">Across all purchase orders</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi__k"><span className="kpi-ic kpi-ic--blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 3h5v5M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></svg></span>Total orders</div>
+              <div className="kpi__v">{perf?.total_orders ?? Empty}</div>
+              <div className="kpi__meta">Purchase orders raised</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi__k"><span className="kpi-ic kpi-ic--amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" /></svg></span>Overdue orders</div>
+              <div className="kpi__v">{perf?.overdue_orders ?? Empty}</div>
+              <div className="kpi__meta">Past delivery date</div>
+            </div>
+            <div className="kpi">
+              <div className="kpi__k"><span className="kpi-ic kpi-ic--violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg></span>Avg lead time</div>
+              <div className="kpi__v">{perf?.avg_lead_days != null ? `${perf.avg_lead_days} days` : (s.lead_time_days != null ? `${s.lead_time_days} days` : Empty)}</div>
+              <div className="kpi__meta">Average to deliver</div>
+            </div>
           </div>
-        </div>
 
-        <h3 style={{ fontSize: "0.9rem", margin: "1.5rem 0 0.5rem" }}>Contacts</h3>
-        {([1, 2] as const).map(seq => (
-          <SupplierContactRow key={seq} company={company} accountCode={s.account_code}
-            seq={seq} existing={s.contacts.find(c => c.seq === seq)}
-            onSaved={() => setRev(r => r + 1)} />
-        ))}
+          <div className="cust-cols">
+            <div className="cust-stack">
+              <div className="cust-card">
+                <div className="cust-card__title">Company details</div>
+                <div className="dl2">
+                  <div className="r"><span className="lab">Name</span><span className="val">{field("name")}</span></div>
+                  <div className="r"><span className="lab">Type</span><span className="val">
+                    {editing
+                      ? <select value={String(patch["supplier_type"] ?? s.supplier_type ?? "")}
+                          onChange={e => setPatch(p => ({ ...p, supplier_type: e.target.value }))}>
+                          <option value="">—</option>
+                          <option value="mill">Mill</option>
+                          <option value="stockholder">Stockholder</option>
+                          <option value="processor">Processor</option>
+                          <option value="subcontractor">Subcontractor</option>
+                          <option value="service">Service</option>
+                        </select>
+                      : (s.supplier_type || Empty)}
+                  </span></div>
+                  <div className="r"><span className="lab">Address</span><span className="val">{addr || Empty}</span></div>
+                  <div className="r"><span className="lab">Telephone</span><span className="val">{field("telephone")}</span></div>
+                  <div className="r"><span className="lab">Email</span><span className="val">{field("email")}</span></div>
+                  <div className="r"><span className="lab">Website</span><span className="val">{s.website ? <a href={s.website} target="_blank" rel="noreferrer">{s.website}</a> : Empty}</span></div>
+                  <div className="r"><span className="lab">VAT no.</span><span className="val">{s.vat_number || Empty}</span></div>
+                  <div className="r"><span className="lab">Currency</span><span className="val">{s.currency || "GBP"}</span></div>
+                  <div className="r"><span className="lab">Accounting ref</span><span className="val">{field("accounting_ref")}</span></div>
+                </div>
+              </div>
 
-        {s.recent_orders.length > 0 && <>
-          <h3 style={{ fontSize: "0.9rem", margin: "1.5rem 0 0.5rem" }}>Recent orders</h3>
-          <table>
-            <thead><tr><th>PO No.</th><th>Order date</th><th>Due</th><th>Status</th><th>Net £</th></tr></thead>
-            <tbody>
-              {s.recent_orders.map(o => (
-                <tr key={o.order_no}>
-                  <td><a href={`#/${company}/purchase-orders/${encodeURIComponent(o.order_no)}`}><code>{o.order_no}</code></a></td>
-                  <td>{fmtDate(o.order_date_serial)}</td>
-                  <td>{fmtDate(o.delivery_date_serial)}</td>
-                  <td><Badge value={o.status || "—"} /></td>
-                  <td>{o.net_gbp != null ? fmtGbp(o.net_gbp) : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>}
+              {s.recent_orders.length > 0 && (
+                <div className="cust-card">
+                  <div className="cust-card__title">Recent orders</div>
+                  <div className="cust-orders">
+                    <table className="data-table">
+                      <thead><tr><th>PO No.</th><th>Order date</th><th>Due</th><th>Status</th><th style={{ textAlign: "right" }}>Net</th></tr></thead>
+                      <tbody>
+                        {s.recent_orders.map(o => (
+                          <tr key={o.order_no}>
+                            <td><a className="ord" href={`#/${company}/purchase-orders/${encodeURIComponent(o.order_no)}`}>{o.order_no}</a></td>
+                            <td>{fmtDate(o.order_date_serial)}</td>
+                            <td>{o.delivery_date_serial ? fmtDate(o.delivery_date_serial) : <span className="is-empty">Not scheduled</span>}</td>
+                            <td><Badge value={o.status || "—"} /></td>
+                            <td style={{ textAlign: "right" }}>{o.net_gbp != null ? fmtGbp(o.net_gbp) : Empty}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
-        {recentGrns && recentGrns.length > 0 && <>
-          <h3 style={{ fontSize: "0.9rem", margin: "1.5rem 0 0.5rem" }}>Recent GRNs</h3>
-          <table>
-            <thead><tr><th>GRN</th><th>PO No.</th><th>Date</th><th>Stock code</th><th>Heat No.</th><th className="r">Qty</th></tr></thead>
-            <tbody>
-              {recentGrns.map(g => (
-                <tr key={g.grn_no}>
-                  <td><a href={`#/${company}/grn/${encodeURIComponent(g.grn_no)}`}><code>{g.grn_no}</code></a></td>
-                  <td>{g.purchase_order_no
-                    ? <a href={`#/${company}/purchase-orders/${encodeURIComponent(g.purchase_order_no)}`}><code>{g.purchase_order_no}</code></a>
-                    : "—"}</td>
-                  <td>{fmtDate(g.confirmed_at)}</td>
-                  <td>{g.stock_account_code || "—"}</td>
-                  <td>{g.heat_no || "—"}</td>
-                  <td className="r">{g.quantity != null ? g.quantity : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>}
-      </>}
+              {recentGrns && recentGrns.length > 0 && (
+                <div className="cust-card">
+                  <div className="cust-card__title">Recent GRNs</div>
+                  <div className="cust-orders">
+                    <table className="data-table">
+                      <thead><tr><th>GRN</th><th>PO No.</th><th>Date</th><th>Stock code</th><th>Heat No.</th><th style={{ textAlign: "right" }}>Qty</th></tr></thead>
+                      <tbody>
+                        {recentGrns.map(g => (
+                          <tr key={g.grn_no}>
+                            <td><a className="ord" href={`#/${company}/grn/${encodeURIComponent(g.grn_no)}`}>{g.grn_no}</a></td>
+                            <td>{g.purchase_order_no
+                              ? <a className="ord" href={`#/${company}/purchase-orders/${encodeURIComponent(g.purchase_order_no)}`}>{g.purchase_order_no}</a>
+                              : <span className="is-empty">—</span>}</td>
+                            <td>{fmtDate(g.confirmed_at)}</td>
+                            <td>{g.stock_account_code || <span className="is-empty">—</span>}</td>
+                            <td>{g.heat_no || <span className="is-empty">—</span>}</td>
+                            <td style={{ textAlign: "right" }}>{g.quantity != null ? g.quantity : <span className="is-empty">—</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="cust-stack">
+              <div className="cust-card">
+                <div className="cust-card__title">Approval &amp; quality</div>
+                <div className="dl2">
+                  <div className="r"><span className="lab">Approved</span><span className="val">
+                    {editing
+                      ? <select value={String(patch["approved_supplier"] ?? s.approved_supplier ?? false)}
+                          onChange={e => setPatch(p => ({ ...p, approved_supplier: e.target.value === "true" }))}>
+                          <option value="false">No</option><option value="true">Yes</option>
+                        </select>
+                      : <Badge value={s.approved_supplier ? "Yes" : "No"} />}
+                  </span></div>
+                  <div className="r"><span className="lab">Approval ref</span><span className="val">{field("approval_ref")}</span></div>
+                  <div className="r"><span className="lab">On hold</span><span className="val">
+                    {editing
+                      ? <select value={String(patch["on_hold"] ?? s.on_hold ?? false)}
+                          onChange={e => setPatch(p => ({ ...p, on_hold: e.target.value === "true" }))}>
+                          <option value="false">No</option><option value="true">Yes</option>
+                        </select>
+                      : (s.on_hold ? <Badge value="On hold" /> : Empty)}
+                  </span></div>
+                  <div className="r"><span className="lab">Hold reason</span><span className="val">{field("hold_reason")}</span></div>
+                  <div className="r"><span className="lab">Lead time</span><span className="val">
+                    {editing
+                      ? <input type="number" min={0} style={{ width: "6em" }}
+                          value={String(patch["lead_time_days"] ?? s.lead_time_days ?? "")}
+                          onChange={e => setPatch(p => ({ ...p, lead_time_days: e.target.value ? parseInt(e.target.value) : null }))} />
+                      : (s.lead_time_days != null ? `${s.lead_time_days} days` : Empty)}
+                  </span></div>
+                  <div className="r"><span className="lab">Delivery rating</span><span className="val">
+                    {editing
+                      ? <select value={String(patch["delivery_rating"] ?? s.delivery_rating ?? "")}
+                          onChange={e => setPatch(p => ({ ...p, delivery_rating: e.target.value ? parseInt(e.target.value) : null }))}>
+                          <option value="">—</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      : (s.delivery_rating != null ? `${s.delivery_rating}/5` : Empty)}
+                  </span></div>
+                  <div className="r"><span className="lab">Quality rating</span><span className="val">
+                    {editing
+                      ? <select value={String(patch["quality_rating"] ?? s.quality_rating ?? "")}
+                          onChange={e => setPatch(p => ({ ...p, quality_rating: e.target.value ? parseInt(e.target.value) : null }))}>
+                          <option value="">—</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                      : (s.quality_rating != null ? `${s.quality_rating}/5` : Empty)}
+                  </span></div>
+                </div>
+              </div>
+
+              <div className="cust-card">
+                <div className="cust-card__title">Contacts</div>
+                {([1, 2] as const).map(seq => (
+                  <SupplierContactRow key={seq} company={company} accountCode={s.account_code}
+                    seq={seq} existing={s.contacts.find(c => c.seq === seq)}
+                    onSaved={() => setRev(r => r + 1)} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+        )
+      })()}
     </Shell>
   )
 }
@@ -10663,7 +10848,7 @@ export function ImportSection({ company, entity, label, header, compact }: {
           onClick={() => downloadCsvTemplate(`${entity}-template.csv`, header)}>
           Download template
         </button>
-        <FileDrop accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+        <input type="file" accept=".csv" onChange={e => setFile(e.target.files?.[0] ?? null)} />
         <button type="button" className={compact ? "btn btn-sm" : "action-btn"} onClick={upload} disabled={!file || loading}>
           {loading ? "Uploading…" : "Upload"}
         </button>
