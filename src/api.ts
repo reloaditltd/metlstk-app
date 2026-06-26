@@ -306,6 +306,7 @@ export type SalesOrderDetail = {
   delivery_notes: { doc_no: string; doc_date: string; despatch_status: string; invoiced: boolean }[]
   invoices: { doc_no: string; invoice_date_serial: string; net_amount: number; total_amount: number; status: string; posted: boolean | null }[]
   contract_review: { status: string; overall_match: boolean | null; signed_off_at: string | null } | null
+  allocation: { lines_total: number; lines_allocated: number } | null
 }
 
 export type ContractReviewField = {

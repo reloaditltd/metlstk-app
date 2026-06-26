@@ -1617,14 +1617,11 @@ function TrackRow({ label, state, hint, onClick }:
   )
 }
 
-function OrderSidebar({ company, order }: { company: string; order: SalesOrderDetail }) {
-  const { data: allocs } = useData<Allocation[]>(
-    () => api.sales.listAllocations(company, order.order_no), [company, order.order_no])
-
+function OrderSidebar({ order }: { order: SalesOrderDetail }) {
   const confirmed = order.status === "confirmed"
-  const lineNos = order.lines.map(l => l.line_no)
-  const allocated = allocs != null && lineNos.length > 0 && lineNos.every(n => allocs.some(a => a.line_no === n))
-  const someAllocated = allocs != null && allocs.length > 0
+  const al = order.allocation
+  const allocated = al != null && al.lines_total > 0 && al.lines_allocated >= al.lines_total
+  const someAllocated = al != null && al.lines_allocated > 0
 
   const cr = order.contract_review
   const crState: TrackState = cr == null ? "pending"
@@ -1853,7 +1850,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
         <DespatchReadiness company={company} orderNo={o.order_no} />
         <DespatchSection company={company} order={o} />
         </div>
-        <OrderSidebar company={company} order={o} />
+        <OrderSidebar order={o} />
         </div>
       </>}
     </DetailShell>
