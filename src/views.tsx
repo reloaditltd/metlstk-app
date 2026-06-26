@@ -4145,6 +4145,30 @@ export function MTCDetail({ company, id }: { company: string; id: string }) {
             </div>
           )}
 
+          {mtc.mechanical_baseline && mtc.mechanical_baseline.length > 0 && (
+            <div className="grn-section" style={{ marginBottom: "1rem" }}>
+              <h3>Grade mechanical baseline <span style={{ fontWeight: 400, fontSize: ".8rem", color: "var(--text-muted)" }}>— EN 10088-3, for reference</span></h3>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Form</th><th>Condition</th><th className="r">Max thk (mm)</th><th className="r">Rp0.2 min</th><th className="r">Rm</th><th className="r">A% min</th><th className="r">HB max</th></tr></thead>
+                  <tbody>
+                    {mtc.mechanical_baseline.map((m, i) => (
+                      <tr key={i}>
+                        <td>{m.product_form}</td>
+                        <td>{m.condition}</td>
+                        <td className="r">{m.size_band_max_mm ?? "—"}</td>
+                        <td className="r">{m.rp02_min ?? "—"}</td>
+                        <td className="r">{m.rm_min != null ? `${m.rm_min}${m.rm_max != null ? "–" + m.rm_max : ""}` : (m.rm_max != null ? "≤" + m.rm_max : "—")}</td>
+                        <td className="r">{m.elong_min ?? "—"}</td>
+                        <td className="r">{m.hb_max ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {mtc.conformance.length > 0 && (
             <div className="grn-section" style={{ marginBottom: "1rem" }}>
               <h3>Spec conformance &nbsp;

@@ -615,6 +615,7 @@ export type MtcDetail = {
   cert_paths: string[] | null; ocr_extracted: boolean
   verified_by: string | null; verified_at: string | null; notes: string | null; created_at: string
   batches: MtcBatch[]; conformance: ConformanceRow[]
+  mechanical_baseline: GradeMechRow[]
 }
 
 export type Quote = {
