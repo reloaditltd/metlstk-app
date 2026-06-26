@@ -10939,7 +10939,9 @@ export function GradeReferenceDetail({ company, id }: { company: string; id: str
     <Shell loading={loading} error={error}>
       <a className="back-link" href={`#/${company}/grade-reference`}>← Grade Reference</a>
       {g && <>
-        <Toolbar title={`${g.common_code} — ${g.werkstoff}`} />
+        <Toolbar title={`${g.common_code} — ${g.werkstoff}`}>
+          <button className="action-btn" onClick={async () => { try { window.open(await api.gradeReference.datasheet(company, g.werkstoff), "_blank") } catch (e) { alert(String(e)) } }}>Datasheet PDF</button>
+        </Toolbar>
         <div className="detail-grid">
           <div className="detail-card">
             <h3>Identity</h3>

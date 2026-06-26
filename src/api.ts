@@ -1194,6 +1194,8 @@ export const api = {
       get<GradeRefDetail>(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}`),
     substitutes: (co: string, werkstoff: string) =>
       get<GradeSubstitute[]>(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}/substitutes`),
+    datasheet: (co: string, werkstoff: string) =>
+      pdfUrl(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}/datasheet`),
   },
   contractReview: {
     get: (co: string, no: string) =>
