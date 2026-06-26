@@ -845,6 +845,22 @@ export type Load = {
   created_at: string
 }
 
+export type GradeRefRow = {
+  werkstoff: string; common_code: string; en_name: string | null; aisi_trade: string | null
+  uns: string | null; family: string | null; magnetic: boolean | null; hardenable: boolean | null
+  pre: number | null; note: string | null; is_primary_for_code: boolean
+}
+export type GradeMechRow = {
+  product_form: string; condition: string; size_band_max_mm: number | null
+  rp02_min: number | null; rp1_min: number | null; rm_min: number | null; rm_max: number | null
+  elong_min: number | null; hb_max: number | null; note: string | null
+}
+export type GradeRefDetail = GradeRefRow & {
+  chemistry: Record<string, { lower?: number; upper?: number }> | null
+  mechanical: GradeMechRow[]
+  equivalents: { werkstoff: string; common_code: string; en_name: string | null; aisi_trade: string | null }[]
+}
+
 const v1 = (co: string) => `/api/v1/${co}`
 
 function qs(params: Record<string, string | number | boolean | undefined>) {
@@ -1163,6 +1179,17 @@ export const api = {
       post<MtcAiExtraction>(`${v1(co)}/mtcs/${id}/ai-extract`, {}),
     aiConfirm: (co: string, id: number, fields: Record<string, unknown>, confirmed_by?: string) =>
       post<{ ok: boolean; fields_applied: string[] }>(`${v1(co)}/mtcs/${id}/ai-confirm`, { fields, confirmed_by }),
+  },
+  gradeReference: {
+    list: (co: string, opts: { search?: string; family?: string } = {}) => {
+      const p = new URLSearchParams()
+      if (opts.search) p.set("search", opts.search)
+      if (opts.family) p.set("family", opts.family)
+      const q = p.toString()
+      return get<GradeRefRow[]>(`${v1(co)}/grade-reference${q ? "?" + q : ""}`)
+    },
+    get: (co: string, werkstoff: string) =>
+      get<GradeRefDetail>(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}`),
   },
   contractReview: {
     get: (co: string, no: string) =>
