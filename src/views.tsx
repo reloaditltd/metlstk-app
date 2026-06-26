@@ -10895,6 +10895,8 @@ export function GradeReferenceList({ company }: { company: string }) {
   const q = useDebounce(search, 300)
   const { data: rows, loading, error } = useData<GradeRefRow[]>(
     () => api.gradeReference.list(company, { search: q, family }), [company, q, family])
+  const { data: finishes } = useData<{ code: string; product_kind: string; process_route: string | null; description: string | null; ra_min: number | null; ra_max: number | null }[]>(
+    () => api.gradeReference.finishes(company), [company])
   return (
     <Shell loading={loading} error={error}>
       <Toolbar title="Grade Reference (EN 10088)">
@@ -10926,6 +10928,27 @@ export function GradeReferenceList({ company }: { company: string }) {
           </tbody>
         </table>
       </div>
+      <details style={{ marginTop: "1rem" }}>
+        <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: ".9rem" }}>
+          EN 10088 surface finish codes{finishes ? ` (${finishes.length})` : ""}
+        </summary>
+        <div className="table-wrap" style={{ marginTop: ".5rem" }}>
+          <table>
+            <thead><tr><th>Code</th><th>Kind</th><th>Process route</th><th>Description</th><th className="r">Ra (µm)</th></tr></thead>
+            <tbody>
+              {finishes?.map(fn => (
+                <tr key={fn.product_kind + fn.code}>
+                  <td><strong>{fn.code}</strong></td>
+                  <td>{fn.product_kind}</td>
+                  <td>{fn.process_route || "—"}</td>
+                  <td>{fn.description || "—"}</td>
+                  <td className="r">{fn.ra_min != null || fn.ra_max != null ? `${fn.ra_min ?? ""}–${fn.ra_max ?? ""}` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </Shell>
   )
 }

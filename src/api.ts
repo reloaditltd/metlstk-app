@@ -862,6 +862,7 @@ export type GradeRefDetail = GradeRefRow & {
   equivalents: { werkstoff: string; common_code: string; en_name: string | null; aisi_trade: string | null }[]
 }
 export type GradeSubstitute = { werkstoff: string; common_code: string; en_name: string | null }
+export type SurfaceFinish = { code: string; product_kind: string; process_route: string | null; description: string | null; ra_min: number | null; ra_max: number | null }
 
 const v1 = (co: string) => `/api/v1/${co}`
 
@@ -1196,6 +1197,7 @@ export const api = {
       get<GradeSubstitute[]>(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}/substitutes`),
     datasheet: (co: string, werkstoff: string) =>
       pdfUrl(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}/datasheet`),
+    finishes: (co: string) => get<SurfaceFinish[]>(`${v1(co)}/surface-finishes`),
   },
   contractReview: {
     get: (co: string, no: string) =>
