@@ -29,6 +29,7 @@ import {
   ProductionSchedule,
   EdiView,
   GradeRegisterView,
+  GradeReferenceList, GradeReferenceDetail,
   NCRList, NCRDetail,
   ImportView,
   ImportSection, CSV_IMPORT_HEADERS,
@@ -163,6 +164,7 @@ const NAV: NavEntry[] = [
     { id: "batches",           label: "Batches" },
     { id: "remnants",          label: "Remnants" },
     { id: "mtcs",              label: "Certificates" },
+    { id: "grade-reference",   label: "Grade Reference" },
     { id: "works-orders",      label: "Works Orders" },
     { id: "scheduling",        label: "Scheduling" },
     { id: "subcontracts",      label: "Subcontracts" },
@@ -491,6 +493,8 @@ export default function App() {
         {module === "ncr"               &&  id && <NCRDetail company={company} id={id} />}
         {module === "edi"               && <EdiView              company={company} />}
         {module === "grade-register"    && <GradeRegisterView    company={company} />}
+        {module === "grade-reference" && !id && <GradeReferenceList   company={company} />}
+        {module === "grade-reference" &&  id && <GradeReferenceDetail company={company} id={id} />}
         {module === "import"            && <ImportView           company={company} />}
       </main>
       <AssistPanel company={company} screen={`${module ?? "dashboard"}${id ? "/" + id : ""}`} />

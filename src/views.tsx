@@ -37,6 +37,7 @@ import {
   type PortalMe, type PortalOrder, type PortalAccount, type PortalInvoice,
   type Notification, type NotifPref,
   type ContractReview, type ContractReviewLine, type ContractReviewField,
+  type GradeRefRow, type GradeRefDetail,
 } from "./api"
 
 function useDebounce<T>(value: T, ms: number): T {
@@ -10858,5 +10859,124 @@ export function ImportView({ company }: { company: string }) {
       <ImportSection company={company} entity="suppliers" label="Suppliers" header={CSV_IMPORT_HEADERS.suppliers} />
       <ImportSection company={company} entity="stock-items" label="Stock items" header={CSV_IMPORT_HEADERS["stock-items"]} />
     </div>
+  )
+}
+
+// ── Grade Reference ───────────────────────────────────────────────────────────
+const GRADE_FAMILIES = ["austenitic", "ferritic", "martensitic", "duplex", "ph"]
+
+export function GradeReferenceList({ company }: { company: string }) {
+  const [search, setSearch] = useState("")
+  const [family, setFamily] = useState("")
+  const q = useDebounce(search, 300)
+  const { data: rows, loading, error } = useData<GradeRefRow[]>(
+    () => api.gradeReference.list(company, { search: q, family }), [company, q, family])
+  return (
+    <Shell loading={loading} error={error}>
+      <Toolbar title="Grade Reference (EN 10088)">
+        <SearchBar value={search} onChange={setSearch} />
+        <select value={family} onChange={e => setFamily(e.target.value)}>
+          <option value="">All families</option>
+          {GRADE_FAMILIES.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </Toolbar>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Werkstoff</th><th>EN name</th><th>AISI</th><th>Family</th><th className="r">PRE</th></tr></thead>
+          <tbody>
+            {rows?.map(r => (
+              <tr key={r.werkstoff} className="row-link"
+                onClick={() => { location.hash = `#/${company}/grade-reference/${encodeURIComponent(r.werkstoff)}` }}>
+                <td>
+                  <strong className="row-link-id">{r.common_code}</strong>
+                  {!r.is_primary_for_code && <span className="badge" style={{ marginLeft: ".4rem", fontSize: ".68rem" }}>alt</span>}
+                </td>
+                <td><code>{r.werkstoff}</code></td>
+                <td>{r.en_name || "—"}</td>
+                <td>{r.aisi_trade || "—"}</td>
+                <td>{r.family || "—"}</td>
+                <td className="r">{r.pre ?? "—"}</td>
+              </tr>
+            ))}
+            {(!rows || rows.length === 0) && <tr><td colSpan={6} className="state-msg">No grades.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </Shell>
+  )
+}
+
+export function GradeReferenceDetail({ company, id }: { company: string; id: string }) {
+  const { data: g, loading, error } = useData<GradeRefDetail>(
+    () => api.gradeReference.get(company, id), [company, id])
+  return (
+    <Shell loading={loading} error={error}>
+      <a className="back-link" href={`#/${company}/grade-reference`}>← Grade Reference</a>
+      {g && <>
+        <Toolbar title={`${g.common_code} — ${g.werkstoff}`} />
+        <div className="detail-grid">
+          <div className="detail-card">
+            <h3>Identity</h3>
+            <dl>
+              <dt>Werkstoff</dt><dd><code>{g.werkstoff}</code></dd>
+              <dt>Common code</dt><dd>{g.common_code}</dd>
+              <dt>EN name</dt><dd>{g.en_name || "—"}</dd>
+              <dt>AISI/trade</dt><dd>{g.aisi_trade || "—"}</dd>
+              <dt>UNS</dt><dd>{g.uns || "—"}</dd>
+              <dt>Family</dt><dd>{g.family || "—"}</dd>
+              <dt>Magnetic</dt><dd>{g.magnetic ? "Yes" : "No"}</dd>
+              <dt>Hardenable</dt><dd>{g.hardenable ? "Yes" : "No"}</dd>
+              <dt>PRE</dt><dd>{g.pre ?? "—"}</dd>
+              {g.note && <><dt>Note</dt><dd>{g.note}</dd></>}
+            </dl>
+          </div>
+          <div className="detail-card">
+            <h3>Chemistry (% by mass)</h3>
+            {g.chemistry
+              ? <table>
+                  <thead><tr><th>El</th><th className="r">Min</th><th className="r">Max</th></tr></thead>
+                  <tbody>
+                    {Object.entries(g.chemistry).map(([el, lim]) => (
+                      <tr key={el}><td>{el}</td><td className="r">{lim.lower ?? "—"}</td><td className="r">{lim.upper ?? "—"}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              : <p className="state-msg">No chemistry limits (alternate — see the primary grade for this code).</p>}
+          </div>
+        </div>
+        {g.equivalents.length > 0 && (
+          <p style={{ margin: ".75rem 0", fontSize: ".85rem" }}>Equivalents:{" "}
+            {g.equivalents.map(e => (
+              <a key={e.werkstoff} href={`#/${company}/grade-reference/${encodeURIComponent(e.werkstoff)}`} style={{ marginRight: ".6rem" }}>
+                <code>{e.werkstoff}</code> ({e.common_code})
+              </a>
+            ))}
+          </p>
+        )}
+        <div className="detail-lines">
+          <h3>Mechanical (EN 10088-3 / tube standards)</h3>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Form</th><th>Condition</th><th className="r">Max thk (mm)</th><th className="r">Rp0.2</th><th className="r">Rm</th><th className="r">A%</th><th className="r">HB</th><th>Note</th></tr></thead>
+              <tbody>
+                {g.mechanical.map((m, i) => (
+                  <tr key={i}>
+                    <td>{m.product_form}</td>
+                    <td>{m.condition}</td>
+                    <td className="r">{m.size_band_max_mm ?? "—"}</td>
+                    <td className="r">{m.rp02_min ?? "—"}</td>
+                    <td className="r">{m.rm_min != null ? `${m.rm_min}${m.rm_max != null ? "–" + m.rm_max : ""}` : (m.rm_max != null ? "≤" + m.rm_max : "—")}</td>
+                    <td className="r">{m.elong_min ?? "—"}</td>
+                    <td className="r">{m.hb_max ?? "—"}</td>
+                    <td>{m.note || ""}</td>
+                  </tr>
+                ))}
+                {g.mechanical.length === 0 && <tr><td colSpan={8} className="state-msg">No mechanical data.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>}
+    </Shell>
   )
 }
