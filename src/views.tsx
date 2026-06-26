@@ -1497,27 +1497,6 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
 
 // ── Sales Order Detail ────────────────────────────────────────────────────────
 
-function RiskScoreBadge({ company, account }: { company: string; account: string }) {
-  const { data } = useData(() => api.customers.riskScore(company, account), [company, account])
-  if (!data) return null
-  const colours: Record<string, string> = { green: "#15803d", amber: "#a06000", red: "#b91c1c" }
-  const col = colours[data.band] ?? "#374151"
-  return (
-    <details style={{ display: "inline-block", fontSize: "0.82rem" }}>
-      <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-        <span style={{ fontWeight: 700, color: col }}>Risk: {data.score}/100</span>
-        <span className="badge" style={{ background: col, color: "#fff", fontSize: "0.68rem" }}>{data.band}</span>
-      </summary>
-      <div style={{ marginTop: "0.3rem", fontSize: "0.78rem", lineHeight: 1.7 }}>
-        {Object.entries(data.factors).map(([k, v]) => (
-          <div key={k}><code>{k.replace(/_/g, " ")}</code>: {String(v)}</div>
-        ))}
-        {Object.keys(data.factors).length === 0 && <div style={{ color: "var(--color-text-muted,#888)" }}>No risk factors.</div>}
-      </div>
-    </details>
-  )
-}
-
 function RemnantPanel({ company, stockCode, cutLengthMm, sawTypeId }: {
   company: string; stockCode: string; cutLengthMm: number; sawTypeId?: number
 }) {
