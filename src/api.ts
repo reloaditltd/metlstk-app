@@ -861,6 +861,7 @@ export type GradeRefDetail = GradeRefRow & {
   mechanical: GradeMechRow[]
   equivalents: { werkstoff: string; common_code: string; en_name: string | null; aisi_trade: string | null }[]
 }
+export type GradeSubstitute = { werkstoff: string; common_code: string; en_name: string | null }
 
 const v1 = (co: string) => `/api/v1/${co}`
 
@@ -1191,6 +1192,8 @@ export const api = {
     },
     get: (co: string, werkstoff: string) =>
       get<GradeRefDetail>(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}`),
+    substitutes: (co: string, werkstoff: string) =>
+      get<GradeSubstitute[]>(`${v1(co)}/grade-reference/${encodeURIComponent(werkstoff)}/substitutes`),
   },
   contractReview: {
     get: (co: string, no: string) =>

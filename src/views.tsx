@@ -10933,6 +10933,8 @@ export function GradeReferenceList({ company }: { company: string }) {
 export function GradeReferenceDetail({ company, id }: { company: string; id: string }) {
   const { data: g, loading, error } = useData<GradeRefDetail>(
     () => api.gradeReference.get(company, id), [company, id])
+  const { data: subs } = useData<{ werkstoff: string; common_code: string; en_name: string | null }[]>(
+    () => api.gradeReference.substitutes(company, id), [company, id])
   return (
     <Shell loading={loading} error={error}>
       <a className="back-link" href={`#/${company}/grade-reference`}>← Grade Reference</a>
@@ -10973,6 +10975,16 @@ export function GradeReferenceDetail({ company, id }: { company: string; id: str
             {g.equivalents.map(e => (
               <a key={e.werkstoff} href={`#/${company}/grade-reference/${encodeURIComponent(e.werkstoff)}`} style={{ marginRight: ".6rem" }}>
                 <code>{e.werkstoff}</code> ({e.common_code})
+              </a>
+            ))}
+          </p>
+        )}
+        {subs && subs.length > 0 && (
+          <p style={{ margin: ".25rem 0 .75rem", fontSize: ".85rem" }}>
+            Acceptable substitutes <span style={{ color: "var(--text-muted)" }}>(meet this grade's spec):</span>{" "}
+            {subs.map(s => (
+              <a key={s.werkstoff} href={`#/${company}/grade-reference/${encodeURIComponent(s.werkstoff)}`} style={{ marginRight: ".6rem" }}>
+                <code>{s.werkstoff}</code> ({s.common_code})
               </a>
             ))}
           </p>
