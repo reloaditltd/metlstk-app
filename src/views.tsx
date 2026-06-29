@@ -1747,7 +1747,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
                 <tr>
                   <th>#</th><th>Stock Code</th><th>Description</th>
                   <th className="r">Ordered</th><th className="r">Sent</th>
-                  <th>Unit</th><th className="r">Total</th><th>Status</th><th>Delivery</th><th></th>
+                  <th>Unit</th><th className="r">Total</th><th>Status</th><th className="hide-sm">Delivery</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -1787,7 +1787,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
                     <td>{l.unit_ordered_display || (l.price_unit ? `per ${l.price_unit.toLowerCase()}` : "—")}</td>
                     <td className="r">{fmtGbp(l.line_total_gbp)}</td>
                     <td><Badge value={l.status} /></td>
-                    <td>{fmtDate(l.delivery_date)}</td>
+                    <td className="hide-sm">{fmtDate(l.delivery_date)}</td>
                     <td><B2BButton company={company} orderNo={o.order_no} lineNo={l.line_no} existingPo={l.back_to_back_po_no} /></td>
                   </tr>
                 ))}
