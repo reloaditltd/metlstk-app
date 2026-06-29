@@ -20,7 +20,8 @@ const COLOURS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335", "#9334e6", "#00897b
 
 // Guided-creation modes — keys match the backend's WIZARD_ENTITIES.
 const WIZARDS: Record<string, string> = {
-  quote: "Quotation", po: "Purchase Order", stock: "Stock Code", grn: "Goods-In (GRN)",
+  quote: "Quotation", po: "Purchase Order", "sales-order": "Sales Order",
+  stock: "Stock Code", grn: "Goods-In (GRN)",
 }
 
 function exportToExcel(chart: AssistChart) {
@@ -201,18 +202,35 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
           handle the admin: create a stock code, raise a purchase order, assign a salesperson. I'll
           always confirm the details before making any change.
         </div>}
-        {msgs.map((m, i) => <div key={i} className={`assist-msg ${m.role}`}>
-          {m.role === "assistant" ? renderReply(m.content) : m.content}
-          {m.actions?.map((action, j) => (
-            <button key={j} onClick={() => { window.location.hash = `#/${company}/${action.module}` }}
-              style={{ display: "inline-block", marginTop: "8px", marginRight: "6px", padding: "6px 12px",
-                background: "#1a73e8", color: "white", border: "none", borderRadius: "4px",
-                cursor: "pointer", fontSize: "13px" }}>
-              {action.label}
-            </button>
-          ))}
-          {m.charts?.map((chart, j) => <ChartBlock key={j} chart={chart} />)}
-        </div>)}
+        {msgs.map((m, i) => {
+          // Wizard confirmation prompt: a table summary + a "confirm/shall I" question → offer one-click actions.
+          const isConfirmation = m.role === "assistant" && !!wizard &&
+            m.content.includes("|") && /confirm|shall i/i.test(m.content)
+          return <div key={i} className={`assist-msg ${m.role}`}>
+            {m.role === "assistant" ? renderReply(m.content) : m.content}
+            {m.actions?.map((action, j) => (
+              <button key={j} onClick={() => { window.location.hash = `#/${company}/${action.module}` }}
+                style={{ display: "inline-block", marginTop: "8px", marginRight: "6px", padding: "6px 12px",
+                  background: "#1a73e8", color: "white", border: "none", borderRadius: "4px",
+                  cursor: "pointer", fontSize: "13px" }}>
+                {action.label}
+              </button>
+            ))}
+            {isConfirmation && (
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button onClick={() => send("Confirm, create it")}
+                  style={{ background: "#34a853", color: "white", border: "none", borderRadius: 4, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                  ✓ Confirm &amp; Create
+                </button>
+                <button onClick={() => { setWizard(null); send("Cancel", null) }}
+                  style={{ background: "#ea4335", color: "white", border: "none", borderRadius: 4, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                  ✗ Cancel
+                </button>
+              </div>
+            )}
+            {m.charts?.map((chart, j) => <ChartBlock key={j} chart={chart} />)}
+          </div>
+        })}
         {busy && <div className="assist-msg assistant">…</div>}
         <div ref={endRef} />
       </div>
