@@ -14,7 +14,7 @@ import {
   WorkOrderList, WorkOrderNew, WorkOrderDetail,
   DeliveryNoteList, DeliveryNoteDetail,
   LoadList,
-  Dashboard, AgedDebtors, OTIFReport, StockTurnReport, MarginsReport, StockValuationReport, StockMixReport, LowStockReport, StockAgeReport, OverdueInvoicesReport, SalesPerfReport, SalespersonPerfReport, MonthlyRevenueReport, CustomerStatement, APRegister, SupplierSpendReport, OutstandingLinesReport, OutstandingPOLinesReport, AuditLog, AdminUsers, AssistPanel, UserProfile,
+  Dashboard, AgedDebtors, OTIFReport, StockTurnReport, MarginsReport, StockValuationReport, StockMixReport, LowStockReport, StockAgeReport, OverdueInvoicesReport, SalesPerfReport, SalespersonPerfReport, MonthlyRevenueReport, CustomerStatement, APRegister, SupplierSpendReport, OutstandingLinesReport, OutstandingPOLinesReport, AuditLog, AdminUsers, UserProfile,
   Fleet,
   SupplierList, SupplierDetailView, SupplierNew, SupplierPerformanceReport,
   TermsView,
@@ -35,6 +35,7 @@ import {
   ImportSection, CSV_IMPORT_HEADERS,
   PortalApp,
 } from "./views"
+import { AssistPanel } from "./components/AssistPanel"
 import { useSession, LoginPage } from "./auth"
 import { supabase } from "./supabase"
 import { api } from "./api"

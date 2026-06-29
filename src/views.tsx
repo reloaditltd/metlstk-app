@@ -558,50 +558,7 @@ export function KpiAlertBell({ company }: { company: string }) {
 }
 
 // Slide-out AI assistant — guides the user, lists next steps, answers questions.
-export function AssistPanel({ company, screen }: { company: string; screen: string }) {
-  const [open, setOpen] = useState(false)
-  const [msgs, setMsgs] = useState<{ role: "user" | "assistant"; content: string }[]>([])
-  const [input, setInput] = useState("")
-  const [busy, setBusy] = useState(false)
-  const endRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [msgs, busy])
-
-  async function send() {
-    const text = input.trim()
-    if (!text || busy) return
-    const next = [...msgs, { role: "user" as const, content: text }]
-    setMsgs(next); setInput(""); setBusy(true)
-    try {
-      const r = await api.assist(company, next, screen)
-      setMsgs([...next, { role: "assistant", content: r.reply }])
-    } catch (e) {
-      setMsgs([...next, { role: "assistant", content: "Sorry — " + String(e) }])
-    } finally { setBusy(false) }
-  }
-
-  if (!open) return <button className="assist-fab" onClick={() => setOpen(true)}>✦ Assistant</button>
-  return (
-    <div className="assist-panel">
-      <div className="assist-head"><strong>✦ MetlStk Assistant</strong>
-        <button className="modal-close" aria-label="Close" style={{ color: "#fff" }} onClick={() => setOpen(false)}>×</button></div>
-      <div className="assist-msgs">
-        {msgs.length === 0 && <div className="assist-hint">
-          Ask me for any report (stock, sales, customers, margins, what needs attention) — or let me
-          handle the admin: create a stock code, raise a purchase order, assign a salesperson. I'll
-          always confirm the details before making any change.
-        </div>}
-        {msgs.map((m, i) => <div key={i} className={`assist-msg ${m.role}`}>{m.content}</div>)}
-        {busy && <div className="assist-msg assistant">…</div>}
-        <div ref={endRef} />
-      </div>
-      <div className="assist-input">
-        <textarea value={input} placeholder="Ask the assistant…" onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send() } }} />
-        <button className="action-btn" disabled={busy} onClick={send}>Send</button>
-      </div>
-    </div>
-  )
-}
+// AssistPanel moved to ./components/AssistPanel — import it from there.
 
 function Pager({
   offset, count, limit, onChange,

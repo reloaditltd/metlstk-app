@@ -873,6 +873,12 @@ function qs(params: Record<string, string | number | boolean | undefined>) {
     .join("&")
 }
 
+export interface AssistResponse {
+  reply: string
+  actions?: Array<{ type: "navigate"; module: string; label: string }>
+  charts?: Array<{ type: "bar" | "line" | "pie"; title: string; data: Record<string, unknown>[] }>
+}
+
 export const api = {
   purchases: {
     listOrders: (co: string, limit = 50, offset = 0, search = "", status = "") =>
@@ -995,7 +1001,7 @@ export const api = {
     },
   },
   assist: (co: string, messages: { role: "user" | "assistant"; content: string }[], screen?: string) =>
-    post<{ reply: string }>(`${v1(co)}/assist`, { messages, screen }),
+    post<AssistResponse>(`${v1(co)}/assist`, { messages, screen }),
   me: {
     get: () => get<UserMe>(`/api/v1/me`),
     update: (body: Partial<UserMe>) => put<{ ok: boolean }>(`/api/v1/me`, body),
