@@ -75,6 +75,15 @@ function loadHistory(company: string): Msg[] {
   catch { return [] }
 }
 
+// True if the text contains at least one real markdown table row (≥2 cells), not just a stray pipe.
+function hasTableRow(text: string): boolean {
+  return text.split("\n").some(l => {
+    const t = l.trim()
+    if (!/^\|.*\|$/.test(t)) return false
+    return t.replace(/^\||\|$/g, "").split("|").length >= 2
+  })
+}
+
 // Inline formatting: **bold** and `code`. Returns React nodes.
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const parts: React.ReactNode[] = []
@@ -159,7 +168,7 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
   // Persist per-company history; rehydrate when the company changes.
   useEffect(() => {
     if (loadedCo.current !== company) { loadedCo.current = company; setMsgs(loadHistory(company)); return }
-    try { sessionStorage.setItem(`assist_history_${company}`, JSON.stringify(msgs)) } catch { /* quota / private mode */ }
+    try { sessionStorage.setItem(`assist_history_${company}`, JSON.stringify(msgs.slice(-50))) } catch { /* quota / private mode */ }
   }, [msgs, company])
 
   // textOverride/modeOverride let startWizard kick off a turn without waiting for state to settle.
@@ -205,7 +214,7 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
         {msgs.map((m, i) => {
           // Wizard confirmation prompt: a table summary + a "confirm/shall I" question → offer one-click actions.
           const isConfirmation = m.role === "assistant" && !!wizard &&
-            m.content.includes("|") && /confirm|shall i/i.test(m.content)
+            hasTableRow(m.content) && /confirm|shall i/i.test(m.content)
           return <div key={i} className={`assist-msg ${m.role}`}>
             {m.role === "assistant" ? renderReply(m.content) : m.content}
             {m.actions?.map((action, j) => (
