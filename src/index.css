@@ -387,6 +387,23 @@ code { font-family: var(--mono); font-size: .78rem; background: #F1F5F9; padding
 .action-btn:disabled { opacity: .45; cursor: default; transform: none; box-shadow: none; }
 .action-btn--danger { background: var(--red,#c0392b); box-shadow: 0 2px 8px rgba(192,57,43,.25); }
 .action-btn--danger:hover:not(:disabled) { background: #a93226; color: #fff; box-shadow: 0 4px 12px rgba(192,57,43,.35); }
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.875rem;
+  height: 34px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s;
+}
+.btn-outline:hover { background: var(--surface-b, rgba(0,0,0,0.04)); }
 /* Toolbar select: matches action-btn height */
 .toolbar-row select {
   height: 36px; padding: 0 10px; font-size: .85rem; font-family: var(--font);
@@ -781,9 +798,13 @@ td:has(.tip) { overflow: visible; }
   .cust-hero__acts { width: 100%; margin-left: 0; }
   /* KPI grid — minmax(0,1fr) allows columns to shrink below content min-width */
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* ORDER section — stack label/value vertically instead of side-by-side */
-  .dl2 .r { flex-direction: column; gap: 0.15rem; }
-  .dl2 .val { text-align: left; }
+  /* dl2 label/value: keep side-by-side but let both items shrink and wrap */
+  .dl2 .lab { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+  .dl2 .val { min-width: 0; overflow-wrap: anywhere; }
+  /* .cust-orders bleed margin causes table to overflow card width on mobile */
+  .cust-orders { margin: 0; }
+  /* risk-ring dial: shrink to fit 2-col KPI cell */
+  .risk-ring__dial { width: 44px !important; height: 44px !important; }
 }
 @media (max-width: 480px) {
   main { padding: .875rem; }
@@ -865,6 +886,9 @@ td:has(.tip) { overflow: visible; }
   margin-top: .3rem; color: var(--text-muted); font-size: .82rem; }
 .cust-hero__sub .sep { color: var(--border-mid); }
 .cust-hero__acts { margin-left: auto; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+/* Hero text block must be able to shrink below its content width */
+.cust-hero > div:not(.cust-hero__mono):not(.cust-hero__acts) { min-width: 0; }
+.cust-hero__sub { overflow-wrap: anywhere; }
 
 .codechip {
   font-family: var(--mono); font-size: .76rem; background: var(--bg);
