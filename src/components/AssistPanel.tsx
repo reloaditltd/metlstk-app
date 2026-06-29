@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react"
 import { api } from "../api"
 
-type Msg = { role: "user" | "assistant"; content: string }
+type NavAction = { type: "navigate"; module: string; label: string }
+type Msg = { role: "user" | "assistant"; content: string; actions?: NavAction[] }
 
 function loadHistory(company: string): Msg[] {
   try { return JSON.parse(sessionStorage.getItem(`assist_history_${company}`) || "[]") }
@@ -101,7 +102,7 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
     setMsgs(next); setInput(""); setBusy(true)
     try {
       const r = await api.assist(company, next, screen)
-      setMsgs([...next, { role: "assistant", content: r.reply }])
+      setMsgs([...next, { role: "assistant", content: r.reply, actions: r.actions }])
     } catch (e) {
       setMsgs([...next, { role: "assistant", content: "Sorry — " + String(e) }])
     } finally { setBusy(false) }
@@ -120,6 +121,14 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
         </div>}
         {msgs.map((m, i) => <div key={i} className={`assist-msg ${m.role}`}>
           {m.role === "assistant" ? renderReply(m.content) : m.content}
+          {m.actions?.map((action, j) => (
+            <button key={j} onClick={() => { window.location.hash = `#/${company}/${action.module}` }}
+              style={{ display: "inline-block", marginTop: "8px", marginRight: "6px", padding: "6px 12px",
+                background: "#1a73e8", color: "white", border: "none", borderRadius: "4px",
+                cursor: "pointer", fontSize: "13px" }}>
+              {action.label}
+            </button>
+          ))}
         </div>)}
         {busy && <div className="assist-msg assistant">…</div>}
         <div ref={endRef} />
