@@ -18,6 +18,11 @@ type Msg = { role: "user" | "assistant"; content: string; actions?: NavAction[];
 
 const COLOURS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335", "#9334e6", "#00897b"]
 
+// Guided-creation modes — keys match the backend's WIZARD_ENTITIES.
+const WIZARDS: Record<string, string> = {
+  quote: "Quotation", po: "Purchase Order", stock: "Stock Code", grn: "Goods-In (GRN)",
+}
+
 function exportToExcel(chart: AssistChart) {
   const ws = XLSX.utils.json_to_sheet(chart.data)
   const wb = XLSX.utils.book_new()
@@ -146,6 +151,7 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
   const [msgs, setMsgs] = useState<Msg[]>(() => loadHistory(company))
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
+  const [wizard, setWizard] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const loadedCo = useRef(company)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [msgs, busy])
@@ -155,17 +161,24 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
     try { sessionStorage.setItem(`assist_history_${company}`, JSON.stringify(msgs)) } catch { /* quota / private mode */ }
   }, [msgs, company])
 
-  async function send() {
-    const text = input.trim()
+  // textOverride/modeOverride let startWizard kick off a turn without waiting for state to settle.
+  async function send(textOverride?: string, modeOverride?: string | null) {
+    const text = (textOverride ?? input).trim()
+    const mode = modeOverride !== undefined ? modeOverride : wizard
     if (!text || busy) return
     const next = [...msgs, { role: "user" as const, content: text }]
     setMsgs(next); setInput(""); setBusy(true)
     try {
-      const r = await api.assist(company, next, screen)
+      const r = await api.assist(company, next, screen, mode ?? undefined)
       setMsgs([...next, { role: "assistant", content: r.reply, actions: r.actions, charts: r.charts }])
     } catch (e) {
       setMsgs([...next, { role: "assistant", content: "Sorry — " + String(e) }])
     } finally { setBusy(false) }
+  }
+
+  function startWizard(mode: string) {
+    setWizard(mode)
+    send(`Help me create ${mode === "grn" ? "a goods-in (GRN) booking" : "a " + WIZARDS[mode].toLowerCase()}.`, mode)
   }
 
   if (!open) return <button className="assist-fab" onClick={() => setOpen(true)}>✦ Assistant</button>
@@ -178,6 +191,10 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
           ⬇ PDF
         </button>
         <button className="modal-close" aria-label="Close" style={{ color: "#fff" }} onClick={() => setOpen(false)}>×</button></div>
+      {wizard && <div className="assist-wizard-strip">
+        Creating: <strong>{WIZARDS[wizard]}</strong>
+        <button onClick={() => setWizard(null)} disabled={busy}>✕ Exit</button>
+      </div>}
       <div className="assist-msgs">
         {msgs.length === 0 && <div className="assist-hint">
           Ask me for any report (stock, sales, customers, margins, what needs attention) — or let me
@@ -202,7 +219,14 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
       <div className="assist-input">
         <textarea value={input} placeholder="Ask the assistant…" onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send() } }} />
-        <button className="action-btn" disabled={busy} onClick={send}>Send</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <select className="assist-wizard-pick" value="" disabled={busy} title="Guided creation"
+            onChange={e => { if (e.target.value) startWizard(e.target.value) }}>
+            <option value="">✦ Guide me…</option>
+            {Object.entries(WIZARDS).map(([k, v]) => <option key={k} value={k}>New {v}</option>)}
+          </select>
+          <button className="action-btn" disabled={busy} onClick={() => send()}>Send</button>
+        </div>
       </div>
     </div>
   )

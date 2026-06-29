@@ -718,6 +718,11 @@ td:has(.tip) { overflow: visible; }
 .assist-hint { font-size: .78rem; color: var(--text-muted); text-align: center; margin: auto 0; padding: 1rem; }
 .assist-input { display: flex; gap: .5rem; padding: .75rem; border-top: 1px solid var(--border); }
 .assist-input textarea { flex: 1; resize: none; min-height: 2.4rem; max-height: 7rem; }
+.assist-wizard-pick { font-size: .78rem; padding: .2rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.assist-wizard-strip { display: flex; align-items: center; gap: .5rem; padding: .45rem .9rem;
+  background: #eef4ff; border-bottom: 1px solid var(--border); font-size: .8rem; color: var(--text-primary); }
+.assist-wizard-strip button { margin-left: auto; font-size: .75rem; cursor: pointer; background: none;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .1rem .5rem; }
 
 /* Print/PDF: show only the assistant panel, expanded to the full page. Standard
    "print one subtree" recipe — the panel is fixed inside #root, so display-hiding

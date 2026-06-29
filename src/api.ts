@@ -1008,8 +1008,8 @@ export const api = {
       return r.json()
     },
   },
-  assist: (co: string, messages: { role: "user" | "assistant"; content: string }[], screen?: string) =>
-    post<AssistResponse>(`${v1(co)}/assist`, { messages, screen }),
+  assist: (co: string, messages: { role: "user" | "assistant"; content: string }[], screen?: string, wizard_mode?: string) =>
+    post<AssistResponse>(`${v1(co)}/assist`, { messages, screen, wizard_mode }),
   me: {
     get: () => get<UserMe>(`/api/v1/me`),
     update: (body: Partial<UserMe>) => put<{ ok: boolean }>(`/api/v1/me`, body),
