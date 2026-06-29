@@ -1,8 +1,68 @@
 import { useState, useEffect, useRef } from "react"
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from "recharts"
+import * as XLSX from "xlsx"
 import { api } from "../api"
 
 type NavAction = { type: "navigate"; module: string; label: string }
-type Msg = { role: "user" | "assistant"; content: string; actions?: NavAction[] }
+type AssistChart = {
+  type: "bar" | "line" | "pie"
+  title: string
+  x_key: string
+  y_key: string
+  data: Record<string, unknown>[]
+}
+type Msg = { role: "user" | "assistant"; content: string; actions?: NavAction[]; charts?: AssistChart[] }
+
+const COLOURS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335", "#9334e6", "#00897b"]
+
+function exportToExcel(chart: AssistChart) {
+  const ws = XLSX.utils.json_to_sheet(chart.data)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, chart.title.slice(0, 31) || "Sheet1")
+  XLSX.writeFile(wb, `${chart.title.replace(/[^a-z0-9]/gi, "_") || "chart"}.xlsx`)
+}
+
+function ChartBlock({ chart }: { chart: AssistChart }) {
+  return (
+    <div style={{ marginTop: 12, background: "#fafafa", borderRadius: 8, padding: "12px 8px" }}>
+      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, textAlign: "center" }}>{chart.title}</div>
+      <ResponsiveContainer width="100%" height={220}>
+        {chart.type === "bar" ? (
+          <BarChart data={chart.data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey={chart.x_key} tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Bar dataKey={chart.y_key} fill="#1a73e8" />
+          </BarChart>
+        ) : chart.type === "line" ? (
+          <LineChart data={chart.data}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey={chart.x_key} tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip />
+            <Line type="monotone" dataKey={chart.y_key} stroke="#1a73e8" dot={false} />
+          </LineChart>
+        ) : (
+          <PieChart>
+            <Pie data={chart.data} dataKey={chart.y_key} nameKey={chart.x_key} cx="50%" cy="50%" outerRadius={80} label>
+              {chart.data.map((_, i) => <Cell key={i} fill={COLOURS[i % COLOURS.length]} />)}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        )}
+      </ResponsiveContainer>
+      <button onClick={() => exportToExcel(chart)}
+        style={{ marginTop: 6, fontSize: 11, cursor: "pointer", background: "none", border: "1px solid #ccc", borderRadius: 4, padding: "2px 8px" }}>
+        ⬇ Excel
+      </button>
+    </div>
+  )
+}
 
 function loadHistory(company: string): Msg[] {
   try { return JSON.parse(sessionStorage.getItem(`assist_history_${company}`) || "[]") }
@@ -102,7 +162,7 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
     setMsgs(next); setInput(""); setBusy(true)
     try {
       const r = await api.assist(company, next, screen)
-      setMsgs([...next, { role: "assistant", content: r.reply, actions: r.actions }])
+      setMsgs([...next, { role: "assistant", content: r.reply, actions: r.actions, charts: r.charts }])
     } catch (e) {
       setMsgs([...next, { role: "assistant", content: "Sorry — " + String(e) }])
     } finally { setBusy(false) }
@@ -110,8 +170,13 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
 
   if (!open) return <button className="assist-fab" onClick={() => setOpen(true)}>✦ Assistant</button>
   return (
-    <div className="assist-panel">
+    <div className="assist-panel assist-panel-print">
       <div className="assist-head"><strong>✦ MetlStk Assistant</strong>
+        <span style={{ flex: 1 }} />
+        <button onClick={() => window.print()}
+          style={{ fontSize: 11, cursor: "pointer", background: "none", border: "1px solid rgba(255,255,255,0.5)", color: "#fff", borderRadius: 4, padding: "2px 8px", marginRight: 8 }}>
+          ⬇ PDF
+        </button>
         <button className="modal-close" aria-label="Close" style={{ color: "#fff" }} onClick={() => setOpen(false)}>×</button></div>
       <div className="assist-msgs">
         {msgs.length === 0 && <div className="assist-hint">
@@ -129,6 +194,7 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
               {action.label}
             </button>
           ))}
+          {m.charts?.map((chart, j) => <ChartBlock key={j} chart={chart} />)}
         </div>)}
         {busy && <div className="assist-msg assistant">…</div>}
         <div ref={endRef} />

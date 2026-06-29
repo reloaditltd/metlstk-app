@@ -719,6 +719,18 @@ td:has(.tip) { overflow: visible; }
 .assist-input { display: flex; gap: .5rem; padding: .75rem; border-top: 1px solid var(--border); }
 .assist-input textarea { flex: 1; resize: none; min-height: 2.4rem; max-height: 7rem; }
 
+/* Print/PDF: show only the assistant panel, expanded to the full page. Standard
+   "print one subtree" recipe — the panel is fixed inside #root, so display-hiding
+   ancestors would hide it too; visibility + reposition is what actually renders. */
+@media print {
+  body * { visibility: hidden !important; }
+  .assist-panel-print, .assist-panel-print * { visibility: visible !important; }
+  .assist-panel-print { position: absolute !important; left: 0; top: 0; width: 100%;
+    height: auto !important; box-shadow: none !important; border: none !important; }
+  .assist-panel-print .assist-msgs { overflow: visible !important; height: auto !important; }
+  .assist-panel-print .assist-input { display: none !important; }
+}
+
 /* header: let the nav scroll horizontally rather than overflow the page on narrow screens */
 @media (max-width: 900px) {
   header { padding: 0 .75rem; }

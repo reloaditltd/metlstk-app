@@ -873,10 +873,18 @@ function qs(params: Record<string, string | number | boolean | undefined>) {
     .join("&")
 }
 
+export interface AssistChart {
+  type: "bar" | "line" | "pie"
+  title: string
+  x_key: string
+  y_key: string
+  data: Record<string, unknown>[]
+}
+
 export interface AssistResponse {
   reply: string
   actions?: Array<{ type: "navigate"; module: string; label: string }>
-  charts?: Array<{ type: "bar" | "line" | "pie"; title: string; data: Record<string, unknown>[] }>
+  charts?: AssistChart[]
 }
 
 export const api = {
