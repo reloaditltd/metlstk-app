@@ -799,7 +799,7 @@ td:has(.tip) { overflow: visible; }
   /* KPI grid — minmax(0,1fr) allows columns to shrink below content min-width */
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* dl2 label/value: keep side-by-side but let both items shrink and wrap */
-  .dl2 .lab { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+  .dl2 .lab { min-width: 0; flex: 1; overflow-wrap: anywhere; text-align: left; }
   .dl2 .val { min-width: 0; overflow-wrap: anywhere; }
   /* .cust-orders bleed margin causes table to overflow card width on mobile */
   .cust-orders { margin: 0; }
