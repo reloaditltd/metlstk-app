@@ -887,6 +887,12 @@ export interface AssistResponse {
   charts?: AssistChart[]
 }
 
+// Persisted message — transient render fields (streaming, toolStatus) are stripped before save.
+export type AssistHistMsg = {
+  role: "user" | "assistant"; content: string
+  actions?: AssistResponse["actions"]; charts?: AssistChart[]
+}
+
 export const api = {
   purchases: {
     listOrders: (co: string, limit = 50, offset = 0, search = "", status = "") =>
@@ -1010,6 +1016,15 @@ export const api = {
   },
   assist: (co: string, messages: { role: "user" | "assistant"; content: string }[], screen?: string, wizard_mode?: string) =>
     post<AssistResponse>(`${v1(co)}/assist`, { messages, screen, wizard_mode }),
+  // Persistent chat history (Supabase). getAssistHistory returns null on failure / missing
+  // migration (the API's 500 handler answers 200 with {error}), so the caller can keep its
+  // sessionStorage cache instead of clobbering it with an empty list.
+  getAssistHistory: (co: string): Promise<AssistHistMsg[] | null> =>
+    get<{ messages?: AssistHistMsg[]; error?: string }>(`${v1(co)}/assist/history`)
+      .then(r => (r.error ? null : (r.messages ?? [])))
+      .catch(() => null),
+  saveAssistHistory: (co: string, messages: AssistHistMsg[]): Promise<void> =>
+    put<{ ok: boolean }>(`${v1(co)}/assist/history`, { messages }).then(() => undefined).catch(() => undefined),
   // SSE streaming twin of assist(). Reads text/event-stream over fetch (Authorization header,
   // so it works with the same auth as everything else — native EventSource can't set headers).
   assistStream: async (

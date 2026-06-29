@@ -118,18 +118,36 @@ export function renderReply(text: string): React.ReactNode {
 
 export function AssistPanel({ company, screen }: { company: string; screen: string }) {
   const [open, setOpen] = useState(false)
-  const [msgs, setMsgs] = useState<Msg[]>(() => loadHistory(company))
+  const [msgs, setMsgs] = useState<Msg[]>(() => loadHistory(company))  // sessionStorage = write-through cache
+  const [loadingHist, setLoadingHist] = useState(true)
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [wizard, setWizard] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const loadedCo = useRef(company)
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [msgs, busy])
-  // Persist per-company history; rehydrate when the company changes.
+  // Write-through cache so navigation stays instant even before the DB responds.
   useEffect(() => {
-    if (loadedCo.current !== company) { loadedCo.current = company; setMsgs(loadHistory(company)); return }
     try { sessionStorage.setItem(`assist_history_${company}`, JSON.stringify(msgs.slice(-50))) } catch { /* quota / private mode */ }
   }, [msgs, company])
+  // On mount / company change, load authoritative history from the DB. On failure the
+  // helper returns null and we keep the sessionStorage-loaded msgs (don't break the panel).
+  useEffect(() => {
+    if (loadedCo.current !== company) { loadedCo.current = company; setMsgs(loadHistory(company)) }
+    let cancelled = false
+    setLoadingHist(true)
+    api.getAssistHistory(company)
+      .then(hist => { if (!cancelled && hist) setMsgs(hist as Msg[]) })
+      .finally(() => { if (!cancelled) setLoadingHist(false) })
+    return () => { cancelled = true }
+  }, [company])
+  // Persist to the DB after each completed assistant reply (transient fields stripped).
+  useEffect(() => {
+    if (loadingHist) return
+    const last = msgs[msgs.length - 1]
+    if (!last || last.role !== "assistant" || last.streaming) return
+    api.saveAssistHistory(company, msgs.map(m => ({ role: m.role, content: m.content, actions: m.actions, charts: m.charts })))
+  }, [msgs, company, loadingHist])
 
   // textOverride/modeOverride let startWizard kick off a turn without waiting for state to settle.
   async function send(textOverride?: string, modeOverride?: string | null) {
@@ -178,7 +196,8 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
         <button onClick={() => setWizard(null)} disabled={busy}>✕ Exit</button>
       </div>}
       <div className="assist-msgs">
-        {msgs.length === 0 && <div className="assist-hint">
+        {loadingHist && msgs.length === 0 && <div className="assist-hint">Loading history…</div>}
+        {!loadingHist && msgs.length === 0 && <div className="assist-hint">
           Ask me for any report (stock, sales, customers, margins, what needs attention) — or let me
           handle the admin: create a stock code, raise a purchase order, assign a salesperson. I'll
           always confirm the details before making any change.
