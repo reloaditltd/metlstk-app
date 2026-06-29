@@ -1264,7 +1264,8 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
                 </div>
               </div>
 
-              <div className="detail-grid">
+              <div className="cust-cols">
+                <div className="cust-stack">
                   <div className="cust-card">
                     <div className="cust-card__title">Financial summary</div>
                     <div className="dl2">
@@ -1284,6 +1285,31 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
                     )}
                   </div>
 
+                  <div className="cust-card">
+                    <div className="cust-card__title">Recent orders</div>
+                    {custOrders && custOrders.length > 0 ? (
+                      <div className="cust-orders">
+                        <table className="data-table">
+                          <thead><tr><th>Order</th><th>Date</th><th>Delivery</th><th>Ref</th><th>Status</th><th style={{ textAlign: "right" }}>Total</th></tr></thead>
+                          <tbody>
+                            {custOrders.map(o => (
+                              <tr key={o.order_no}>
+                                <td><a href={`#/${company}/sales-orders/${o.order_no}`}>{o.order_no}</a></td>
+                                <td>{fmtDate(o.order_date)}</td>
+                                <td>{o.delivery_date ? fmtDate(o.delivery_date) : <span className="is-empty">Not scheduled</span>}</td>
+                                <td>{o.customer_ref || <span className="is-empty">—</span>}</td>
+                                <td><Badge value={o.status ?? ""} /></td>
+                                <td style={{ textAlign: "right" }}>{fmtGbp(o.total_gbp)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p className="kpi__meta">No orders yet.</p>}
+                  </div>
+                </div>
+
+                <div className="cust-stack">
                   <div className="cust-card">
                     <div className="cust-card__title">Contact</div>
                     <div className="clist2">
@@ -1370,29 +1396,7 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
                         onSaved={() => setCRev(r => r + 1)} />
                     ))}
                   </div>
-              </div>
-
-              <div className="detail-lines">
-                <h3>Recent orders</h3>
-                {custOrders && custOrders.length > 0 ? (
-                  <div className="cust-orders">
-                    <table className="data-table">
-                      <thead><tr><th>Order</th><th>Date</th><th>Delivery</th><th>Ref</th><th>Status</th><th style={{ textAlign: "right" }}>Total</th></tr></thead>
-                      <tbody>
-                        {custOrders.map(o => (
-                          <tr key={o.order_no}>
-                            <td><a href={`#/${company}/sales-orders/${o.order_no}`}>{o.order_no}</a></td>
-                            <td>{fmtDate(o.order_date)}</td>
-                            <td>{o.delivery_date ? fmtDate(o.delivery_date) : <span className="is-empty">Not scheduled</span>}</td>
-                            <td>{o.customer_ref || <span className="is-empty">—</span>}</td>
-                            <td><Badge value={o.status ?? ""} /></td>
-                            <td style={{ textAlign: "right" }}>{fmtGbp(o.total_gbp)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : <p className="kpi__meta">No orders yet.</p>}
+                </div>
               </div>
 
               {c.notes && (
@@ -1405,8 +1409,8 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
           )
         })()}
         {custInvoices && custInvoices.length > 0 && (
-          <div className="detail-lines">
-            <h3>Recent Invoices</h3>
+          <section style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginBottom: "0.5rem" }}>Recent Invoices</h3>
             <table className="data-table">
               <thead><tr><th>Invoice</th><th>Date</th><th>Status</th><th style={{ textAlign: "right" }}>Total</th></tr></thead>
               <tbody>
@@ -1420,11 +1424,11 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
                 ))}
               </tbody>
             </table>
-          </div>
+          </section>
         )}
         {custPayments && custPayments.length > 0 && (
-          <div className="detail-lines">
-            <h3>Recent Payments</h3>
+          <section style={{ marginTop: "1.5rem" }}>
+            <h3 style={{ marginBottom: "0.5rem" }}>Recent Payments</h3>
             <table className="data-table">
               <thead><tr><th>Payment</th><th>Date</th><th>Method</th><th>Ref</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
               <tbody>
@@ -1439,7 +1443,7 @@ export function CustomerDetail({ company, id }: { company: string; id: string })
                 ))}
               </tbody>
             </table>
-          </div>
+          </section>
         )}
       </>}
     </DetailShell>
@@ -1743,7 +1747,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
                 <tr>
                   <th>#</th><th>Stock Code</th><th>Description</th>
                   <th className="r">Ordered</th><th className="r">Sent</th>
-                  <th>Unit</th><th className="r">Total</th><th>Status</th><th className="hide-sm">Delivery</th><th></th>
+                  <th>Unit</th><th className="r">Total</th><th>Status</th><th>Delivery</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -1783,7 +1787,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
                     <td>{l.unit_ordered_display || (l.price_unit ? `per ${l.price_unit.toLowerCase()}` : "—")}</td>
                     <td className="r">{fmtGbp(l.line_total_gbp)}</td>
                     <td><Badge value={l.status} /></td>
-                    <td className="hide-sm">{fmtDate(l.delivery_date)}</td>
+                    <td>{fmtDate(l.delivery_date)}</td>
                     <td><B2BButton company={company} orderNo={o.order_no} lineNo={l.line_no} existingPo={l.back_to_back_po_no} /></td>
                   </tr>
                 ))}

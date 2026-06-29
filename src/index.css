@@ -387,23 +387,6 @@ code { font-family: var(--mono); font-size: .78rem; background: #F1F5F9; padding
 .action-btn:disabled { opacity: .45; cursor: default; transform: none; box-shadow: none; }
 .action-btn--danger { background: var(--red,#c0392b); box-shadow: 0 2px 8px rgba(192,57,43,.25); }
 .action-btn--danger:hover:not(:disabled) { background: #a93226; color: #fff; box-shadow: 0 4px 12px rgba(192,57,43,.35); }
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.875rem;
-  height: 34px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s;
-}
-.btn-outline:hover { background: var(--surface-b, rgba(0,0,0,0.04)); }
 /* Toolbar select: matches action-btn height */
 .toolbar-row select {
   height: 36px; padding: 0 10px; font-size: .85rem; font-family: var(--font);
@@ -511,7 +494,7 @@ code { font-family: var(--mono); font-size: .78rem; background: #F1F5F9; padding
 .pick-confirm-btn:hover { background: var(--brand); color: #fff; }
 .pick-confirm-btn--done { background: var(--green); border-color: var(--green); color: #fff; }
 .pick-confirm-btn--done:hover { background: #0a6836; border-color: #0a6836; }
-.dispatch-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-top: 1px solid var(--border); padding: .85rem 1.125rem calc(.85rem + env(safe-area-inset-bottom, 0)); margin-top: 1.25rem; box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
+.dispatch-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border-top: 1px solid var(--border); padding: .85rem 1.125rem; margin-top: 1.25rem; box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
 .dispatch-footer span { font-size: .9rem; color: var(--text-muted); }
 .dispatch-submit-btn { padding: .65rem 1.5rem; background: var(--brand); color: #fff; border: none; border-radius: var(--radius-pill); font-size: .95rem; font-weight: 700; font-family: var(--font); cursor: pointer; transition: all .15s; box-shadow: 0 4px 14px rgba(37,99,235,.30); }
 .dispatch-submit-btn:hover:not(:disabled) { background: var(--brand-hover); transform: translateY(-1px); }
@@ -733,7 +716,7 @@ td:has(.tip) { overflow: visible; }
 .assist-msg.user { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 3px; }
 .assist-msg.assistant { align-self: flex-start; background: var(--bg); color: var(--text-primary); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
 .assist-hint { font-size: .78rem; color: var(--text-muted); text-align: center; margin: auto 0; padding: 1rem; }
-.assist-input { display: flex; gap: .5rem; padding: .75rem .75rem calc(.75rem + env(safe-area-inset-bottom, 0)); border-top: 1px solid var(--border); }
+.assist-input { display: flex; gap: .5rem; padding: .75rem; border-top: 1px solid var(--border); }
 .assist-input textarea { flex: 1; resize: none; min-height: 2.4rem; max-height: 7rem; }
 .assist-wizard-pick { font-size: .78rem; padding: .2rem; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .assist-wizard-strip { display: flex; align-items: center; gap: .5rem; padding: .45rem .9rem;
@@ -764,52 +747,73 @@ td:has(.tip) { overflow: visible; }
   .detail-grid { grid-template-columns: 1fr; }
   /* larger touch targets on mobile */
   .action-btn { min-height: 44px; }
-  button:not(.link-btn):not(.modal-close), select, .pager button { min-height: 44px; }
 }
 @media (max-width: 720px) {
   /* sticky header not useful on small screens */
   th { position: static; }
 }
 @media (max-width: 600px) {
-  .assist-fab { right: .75rem; bottom: calc(.75rem + env(safe-area-inset-bottom, 0)); padding: 9px 14px; font-size: .82rem; }
+  .assist-fab { right: .75rem; bottom: .75rem; padding: 9px 14px; font-size: .82rem; }
   .grn-grid { grid-template-columns: 1fr; }
-  .kpi { padding: .75rem .85rem; }
-  .kpi__v { font-size: 1.3rem; }
   /* KPI bell popup: stop it overflowing left edge on narrow screens */
   .kpi-bell-wrap > div:last-child {
     right: auto !important; left: 50% !important; transform: translateX(-50%) !important;
     min-width: calc(100vw - 2rem) !important;
   }
-  /* ── Responsive tables ──
-     Make the table itself the horizontal scroll container (display:block — the
-     GitHub-markdown approach). Columns stay aligned; anything wider than the
-     screen scrolls instead of cramming. Covers every table, wrapped or not —
-     no per-cell data-label needed. */
-  /* max-width:100% is the load-bearing line — without it a display:block table
-     takes its intrinsic (nowrap) content width and overflows the page.
-     Also targets .table-wrap > table to beat the desktop width:auto rule. */
-  table, .table-wrap > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; max-width: 100%; }
-  .table-wrap { overflow: visible; max-height: none; }
-  th, td { padding: .4rem .6rem; }
-  /* low-priority columns flagged for hiding on small screens */
-  .hide-sm { display: none !important; }
-  /* Hero card — allow flex wrapping so action buttons drop below the text on mobile */
-  .cust-hero { flex-wrap: wrap; }
-  .cust-hero__acts { width: 100%; margin-left: 0; }
-  /* KPI grid — minmax(0,1fr) allows columns to shrink below content min-width */
-  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* dl2 label/value: keep side-by-side but let both items shrink and wrap */
-  .dl2 .lab { min-width: 0; flex: 1; overflow-wrap: anywhere; text-align: left; }
-  .dl2 .val { min-width: 0; overflow-wrap: anywhere; }
-  /* .cust-orders bleed margin causes table to overflow card width on mobile */
-  .cust-orders { margin: 0; }
-  /* risk-ring dial: shrink to fit 2-col KPI cell */
-  .risk-ring__dial { width: 44px !important; height: 44px !important; }
+  /* ── Card table layout: each row becomes a stacked card ── */
+  /* .table-wrap tables keep their horizontal scroll and don't convert to cards */
+  .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { overflow-x: visible !important; width: auto !important; font-size: .75rem; }
+  .table-wrap thead { display: table-header-group !important; }
+  .table-wrap tbody { display: table-row-group !important; }
+  .table-wrap tbody tr { display: table-row !important; border: none; border-radius: 0; margin-bottom: 0; box-shadow: none; }
+  .table-wrap td { display: table-cell !important; padding: .35rem .55rem !important; border-bottom: 1px solid var(--border) !important; max-width: none !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+  .table-wrap td::before { display: none; }
+  /* narrow tables without .table-wrap use card layout */
+  table { overflow-x: hidden !important; width: 100% !important; }
+  thead { display: none; }
+  tbody { display: block; width: 100%; }
+  tbody tr {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: .5rem;
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+  td {
+    display: flex !important;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .38rem .75rem !important;
+    border: none !important;
+    max-width: none !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    font-size: .83rem;
+  }
+  td::before {
+    content: attr(data-label);
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted);
+    min-width: 90px;
+    flex-shrink: 0;
+    padding-top: .1rem;
+  }
+  td:empty { display: none !important; }
+  /* row-link rows stay clickable */
+  tbody tr.row-link { cursor: pointer; }
+  tbody tr.row-link:hover { background: var(--bg); }
 }
 @media (max-width: 480px) {
   main { padding: .875rem; }
   .pick-card { padding: .875rem; }
-  .dispatch-footer { padding: .75rem .75rem calc(.75rem + env(safe-area-inset-bottom, 0)); }
+  .dispatch-footer { padding: .75rem; }
   .brand-name { display: none; }
   /* header is too cramped for sign-out text at very narrow widths */
   .signout-btn { display: none; }
@@ -886,9 +890,6 @@ td:has(.tip) { overflow: visible; }
   margin-top: .3rem; color: var(--text-muted); font-size: .82rem; }
 .cust-hero__sub .sep { color: var(--border-mid); }
 .cust-hero__acts { margin-left: auto; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
-/* Hero text block must be able to shrink below its content width */
-.cust-hero > div:not(.cust-hero__mono):not(.cust-hero__acts) { min-width: 0; }
-.cust-hero__sub { overflow-wrap: anywhere; }
 
 .codechip {
   font-family: var(--mono); font-size: .76rem; background: var(--bg);
