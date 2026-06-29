@@ -52,7 +52,7 @@
 }
 
 html { font-size: 16px; -webkit-font-smoothing: antialiased; }
-body { font-family: var(--font); background: var(--bg); color: var(--text-primary); line-height: 1.6; font-size: 14px; overflow-x: clip; }
+body { font-family: var(--font); background: var(--bg); color: var(--text-primary); line-height: 1.6; font-size: 14px; }
 
 /* ── Login page (MetlSpec-style: full dark bg, split content) ── */
 .ls-page { min-height: 100vh; background: var(--navy); display: flex; align-items: stretch; }
@@ -776,6 +776,14 @@ td:has(.tip) { overflow: visible; }
   th, td { padding: .4rem .6rem; }
   /* low-priority columns flagged for hiding on small screens */
   .hide-sm { display: none !important; }
+  /* Hero card — allow flex wrapping so action buttons drop below the text on mobile */
+  .cust-hero { flex-wrap: wrap; }
+  .cust-hero__acts { width: 100%; margin-left: 0; }
+  /* KPI grid — minmax(0,1fr) allows columns to shrink below content min-width */
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* ORDER section — stack label/value vertically instead of side-by-side */
+  .dl2 .r { flex-direction: column; gap: 0.15rem; }
+  .dl2 .val { text-align: left; }
 }
 @media (max-width: 480px) {
   main { padding: .875rem; }
