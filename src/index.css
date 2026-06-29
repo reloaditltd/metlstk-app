@@ -52,7 +52,7 @@
 }
 
 html { font-size: 16px; -webkit-font-smoothing: antialiased; }
-body { font-family: var(--font); background: var(--bg); color: var(--text-primary); line-height: 1.6; font-size: 14px; }
+body { font-family: var(--font); background: var(--bg); color: var(--text-primary); line-height: 1.6; font-size: 14px; overflow-x: clip; }
 
 /* ── Login page (MetlSpec-style: full dark bg, split content) ── */
 .ls-page { min-height: 100vh; background: var(--navy); display: flex; align-items: stretch; }
@@ -768,7 +768,10 @@ td:has(.tip) { overflow: visible; }
      GitHub-markdown approach). Columns stay aligned; anything wider than the
      screen scrolls instead of cramming. Covers every table, wrapped or not —
      no per-cell data-label needed. */
-  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+  /* max-width:100% is the load-bearing line — without it a display:block table
+     takes its intrinsic (nowrap) content width and overflows the page.
+     Also targets .table-wrap > table to beat the desktop width:auto rule. */
+  table, .table-wrap > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; max-width: 100%; }
   .table-wrap { overflow: visible; max-height: none; }
   th, td { padding: .4rem .6rem; }
   /* low-priority columns flagged for hiding on small screens */
