@@ -14,9 +14,26 @@ type AssistChart = {
   y_key: string
   data: Record<string, unknown>[]
 }
-type Msg = { role: "user" | "assistant"; content: string; actions?: NavAction[]; charts?: AssistChart[] }
+type Msg = {
+  role: "user" | "assistant"; content: string; actions?: NavAction[]; charts?: AssistChart[]
+  streaming?: boolean; toolStatus?: string
+}
 
 const COLOURS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335", "#9334e6", "#00897b"]
+
+// Friendly status lines shown while a tool runs. Keys are the backend tool names.
+const TOOL_LABELS: Record<string, string> = {
+  run_report: "Running report…",
+  generate_chart: "Generating chart…",
+  create_draft_sales_order: "Creating draft sales order…",
+  create_quote: "Creating quote…",
+  create_purchase_order: "Raising purchase order…",
+  create_stock_code: "Creating stock code…",
+  set_customer_salesperson: "Assigning salesperson…",
+  allocate_stock: "Allocating stock…",
+  book_in_stock: "Booking in stock…",
+  navigate: "Finding screen…",
+}
 
 // Guided-creation modes — keys match the backend's WIZARD_ENTITIES.
 const WIZARDS: Record<string, string> = {
@@ -176,13 +193,25 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
     const text = (textOverride ?? input).trim()
     const mode = modeOverride !== undefined ? modeOverride : wizard
     if (!text || busy) return
-    const next = [...msgs, { role: "user" as const, content: text }]
-    setMsgs(next); setInput(""); setBusy(true)
+    const history = msgs.map(m => ({ role: m.role, content: m.content }))
+    setMsgs([...msgs,
+      { role: "user", content: text },
+      { role: "assistant", content: "", streaming: true }])
+    setInput(""); setBusy(true)
+    // Always patch the last (streaming) message — safe against stale state.
+    const patchLast = (p: Partial<Msg>) =>
+      setMsgs(cur => cur.map((m, i) => i === cur.length - 1 ? { ...m, ...p } : m))
+    let acc = ""
     try {
-      const r = await api.assist(company, next, screen, mode ?? undefined)
-      setMsgs([...next, { role: "assistant", content: r.reply, actions: r.actions, charts: r.charts }])
+      await api.assistStream(company, { message: text, history, screen, wizard_mode: mode ?? undefined }, {
+        token: t => { acc += t; patchLast({ content: acc }) },
+        toolStart: name => patchLast({ toolStatus: TOOL_LABELS[name] ?? "Working…" }),
+        toolDone: () => patchLast({ toolStatus: undefined }),
+        done: r => patchLast({ content: r.reply || acc, actions: r.actions, charts: r.charts, streaming: false, toolStatus: undefined }),
+        error: e => patchLast({ content: "Sorry — " + e, streaming: false, toolStatus: undefined }),
+      })
     } catch (e) {
-      setMsgs([...next, { role: "assistant", content: "Sorry — " + String(e) }])
+      patchLast({ content: "Sorry — " + String(e), streaming: false, toolStatus: undefined })
     } finally { setBusy(false) }
   }
 
@@ -213,10 +242,17 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
         </div>}
         {msgs.map((m, i) => {
           // Wizard confirmation prompt: a table summary + a "confirm/shall I" question → offer one-click actions.
-          const isConfirmation = m.role === "assistant" && !!wizard &&
+          const isConfirmation = m.role === "assistant" && !m.streaming && !!wizard &&
             hasTableRow(m.content) && /confirm|shall i/i.test(m.content)
           return <div key={i} className={`assist-msg ${m.role}`}>
-            {m.role === "assistant" ? renderReply(m.content) : m.content}
+            {m.role === "assistant"
+              ? (m.streaming && !m.content ? "…" : renderReply(m.content))
+              : m.content}
+            {m.toolStatus && (
+              <div style={{ fontSize: 11, color: "#888", fontStyle: "italic", marginTop: 4 }}>
+                {m.toolStatus}
+              </div>
+            )}
             {m.actions?.map((action, j) => (
               <button key={j} onClick={() => { window.location.hash = `#/${company}/${action.module}` }}
                 style={{ display: "inline-block", marginTop: "8px", marginRight: "6px", padding: "6px 12px",
@@ -240,7 +276,6 @@ export function AssistPanel({ company, screen }: { company: string; screen: stri
             {m.charts?.map((chart, j) => <ChartBlock key={j} chart={chart} />)}
           </div>
         })}
-        {busy && <div className="assist-msg assistant">…</div>}
         <div ref={endRef} />
       </div>
       <div className="assist-input">

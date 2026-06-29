@@ -1010,6 +1010,49 @@ export const api = {
   },
   assist: (co: string, messages: { role: "user" | "assistant"; content: string }[], screen?: string, wizard_mode?: string) =>
     post<AssistResponse>(`${v1(co)}/assist`, { messages, screen, wizard_mode }),
+  // SSE streaming twin of assist(). Reads text/event-stream over fetch (Authorization header,
+  // so it works with the same auth as everything else — native EventSource can't set headers).
+  assistStream: async (
+    co: string,
+    payload: { message: string; history: { role: string; content: string }[]; screen?: string; wizard_mode?: string },
+    on: {
+      token: (t: string) => void
+      toolStart: (name: string) => void
+      toolDone: (name: string) => void
+      done: (r: AssistResponse) => void
+      error: (e: string) => void
+    },
+  ): Promise<void> => {
+    const params = new URLSearchParams({ message: payload.message, history: JSON.stringify(payload.history) })
+    if (payload.screen) params.set("screen", payload.screen)
+    if (payload.wizard_mode) params.set("wizard_mode", payload.wizard_mode)
+    const headers = await authHeader()
+    const resp = await fetch(`${BASE}${v1(co)}/assist/stream?${params}`, { headers })
+    if (!resp.ok || !resp.body) { on.error(`HTTP ${resp.status}`); return }
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split("\n")
+      buffer = lines.pop() ?? ""
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue
+        const raw = line.slice(6)
+        if (raw === "[DONE]") return
+        try {
+          const ev = JSON.parse(raw)
+          if (ev.type === "token") on.token(ev.content)
+          else if (ev.type === "tool_start") on.toolStart(ev.name)
+          else if (ev.type === "tool_done") on.toolDone(ev.name)
+          else if (ev.type === "done") on.done({ reply: ev.reply, actions: ev.actions, charts: ev.charts })
+          else if (ev.type === "error") on.error(ev.message)
+        } catch { /* skip malformed */ }
+      }
+    }
+  },
   me: {
     get: () => get<UserMe>(`/api/v1/me`),
     update: (body: Partial<UserMe>) => put<{ ok: boolean }>(`/api/v1/me`, body),
