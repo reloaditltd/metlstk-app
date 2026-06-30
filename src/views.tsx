@@ -9545,7 +9545,7 @@ export function PortalNotificationPrefs() {
 }
 
 export function PortalApp() {
-  const [token, setToken] = useState(() => localStorage.getItem("portal_token"))
+  const [token, setToken] = useState(() => sessionStorage.getItem("portal_token"))
   const [view, setView] = useState(() => (window.location.hash.split("/")[2] || "dashboard"))
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -9562,10 +9562,10 @@ export function PortalApp() {
       .catch(() => { /* non-fatal */ })
   }, [token])
 
-  if (!token) return <PortalLogin onLogin={() => setToken(localStorage.getItem("portal_token"))} />
+  if (!token) return <PortalLogin onLogin={() => setToken(sessionStorage.getItem("portal_token"))} />
 
   const nav = (m: string) => { window.location.hash = `#/portal/${m}` }
-  const logout = () => { localStorage.removeItem("portal_token"); setToken(null) }
+  const logout = () => { sessionStorage.removeItem("portal_token"); setToken(null) }
 
   return (
     <div className="layout portal-layout">

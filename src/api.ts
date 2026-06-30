@@ -41,12 +41,12 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   return res.json() as Promise<T>
 }
 
-// ── Portal: auth comes from a Supabase token in localStorage, not the internal session ──
+// ── Portal: auth comes from a Supabase token in sessionStorage, not the internal session ──
 export const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  as string
 export const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON as string
 
 async function portalGet<T>(path: string): Promise<T> {
-  const token = localStorage.getItem("portal_token") ?? ""
+  const token = sessionStorage.getItem("portal_token") ?? ""
   const r = await fetch(`${BASE}/api/v1/portal${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
@@ -55,7 +55,7 @@ async function portalGet<T>(path: string): Promise<T> {
 }
 
 async function portalPost<T>(path: string, body: unknown): Promise<T> {
-  const token = localStorage.getItem("portal_token") ?? ""
+  const token = sessionStorage.getItem("portal_token") ?? ""
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (token) headers["Authorization"] = `Bearer ${token}`
   const r = await fetch(`${BASE}/api/v1/portal${path}`, {
@@ -67,7 +67,7 @@ async function portalPost<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function portalPatch<T>(path: string, body: unknown): Promise<T> {
-  const token = localStorage.getItem("portal_token") ?? ""
+  const token = sessionStorage.getItem("portal_token") ?? ""
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (token) headers["Authorization"] = `Bearer ${token}`
   const r = await fetch(`${BASE}/api/v1/portal${path}`, {
@@ -139,7 +139,7 @@ export async function portalLogin(email: string, password: string): Promise<void
   })
   const data = await r.json()
   if (!r.ok || !data.access_token) throw new Error(data.error_description ?? data.msg ?? "Login failed")
-  localStorage.setItem("portal_token", data.access_token)
+  sessionStorage.setItem("portal_token", data.access_token)
 }
 
 async function pdfUrl(path: string): Promise<string> {
@@ -150,7 +150,7 @@ async function pdfUrl(path: string): Promise<string> {
 }
 
 async function portalPdfUrl(path: string): Promise<string> {
-  const token = localStorage.getItem("portal_token") ?? ""
+  const token = sessionStorage.getItem("portal_token") ?? ""
   const r = await fetch(`${BASE}/api/v1/portal${path}`, token ? { headers: { Authorization: `Bearer ${token}` } } : {})
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
   return URL.createObjectURL(await r.blob())
