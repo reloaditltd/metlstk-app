@@ -13,13 +13,25 @@ export type AssistChart = {
 
 const COLOURS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335", "#9334e6", "#00897b"]
 
-// xlsx is loaded on demand (button click) so it stays out of the main bundle.
-async function exportToExcel(chart: AssistChart) {
-  const XLSX = await import("xlsx")
-  const ws = XLSX.utils.json_to_sheet(chart.data)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, chart.title.slice(0, 31) || "Sheet1")
-  XLSX.writeFile(wb, `${chart.title.replace(/[^a-z0-9]/gi, "_") || "chart"}.xlsx`)
+// Export flat chart data as CSV (zero-dependency, opens in Excel/Sheets). Replaces
+// the abandoned `xlsx` package (2 HIGH CVEs); this data is a plain array of rows so
+// CSV is sufficient and drops the vulnerable dependency entirely.
+function exportCsv(chart: AssistChart) {
+  const rows = chart.data
+  if (!rows.length) return
+  const cols = Object.keys(rows[0])
+  const esc = (v: unknown) => {
+    const s = v == null ? "" : String(v)
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const csv = [cols.join(","), ...rows.map(r => cols.map(c => esc(r[c])).join(","))].join("\r\n")
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })  // BOM = Excel-friendly UTF-8
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `${chart.title.replace(/[^a-z0-9]/gi, "_") || "chart"}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export default function ChartBlock({ chart }: { chart: AssistChart }) {
@@ -53,9 +65,9 @@ export default function ChartBlock({ chart }: { chart: AssistChart }) {
           </PieChart>
         )}
       </ResponsiveContainer>
-      <button onClick={() => exportToExcel(chart)}
+      <button onClick={() => exportCsv(chart)}
         style={{ marginTop: 6, fontSize: 11, cursor: "pointer", background: "none", border: "1px solid #ccc", borderRadius: 4, padding: "2px 8px" }}>
-        ⬇ Excel
+        ⬇ CSV
       </button>
     </div>
   )
