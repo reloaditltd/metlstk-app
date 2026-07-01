@@ -339,6 +339,32 @@ function useTableCardLabels() {
   }, [])
 }
 
+// Every module slug that has a route in <main> below. Keep in sync with those
+// conditionals -- used only to render a "page not found" fallback for unknown
+// hash routes (previously such routes rendered a silent blank page).
+const KNOWN_MODULES = new Set([
+  "dashboard", "profile", "admin", "audit", "pwa", "branding", "statement",
+  "customers", "quotes", "sales-orders", "delivery-notes", "invoices",
+  "aged-debtors", "overdue-invoices", "purchase-orders", "grn", "suppliers",
+  "stock", "batches", "remnants", "mtcs", "grade-reference", "grade-register",
+  "works-orders", "scheduling", "fleet", "loads", "ncr", "scrap", "subcontracts",
+  "terms", "edi", "fx", "import", "stock-adjustments", "accounting",
+  "sales-perf", "salesperson-perf", "monthly-revenue", "outstanding-lines",
+  "outstanding-po-lines", "otif", "stock-turn", "margins", "stock-valuation",
+  "low-stock", "stock-age", "stock-mix", "ap-register", "supplier-spend",
+])
+
+function NotFound({ company }: { company: string }) {
+  return (
+    <div style={{ textAlign: "center", padding: "4rem 1rem", color: "var(--text-muted)" }}>
+      <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--navy)" }}>Page not found</div>
+      <p style={{ marginTop: ".5rem" }}>That page doesn’t exist.</p>
+      <a className="action-btn" style={{ display: "inline-block", marginTop: "1rem", textDecoration: "none" }}
+        href={`#/${company}/dashboard`}>← Back to dashboard</a>
+    </div>
+  )
+}
+
 export default function App() {
   useTableCardLabels()
   const hash = useHash()
@@ -497,6 +523,7 @@ export default function App() {
         {module === "grade-reference" && !id && <GradeReferenceList   company={company} />}
         {module === "grade-reference" &&  id && <GradeReferenceDetail company={company} id={id} />}
         {module === "import"            && <ImportView           company={company} />}
+        {module && !KNOWN_MODULES.has(module) && <NotFound company={company} />}
       </main>
       <AssistPanel company={company} screen={`${module ?? "dashboard"}${id ? "/" + id : ""}`} />
     </div>

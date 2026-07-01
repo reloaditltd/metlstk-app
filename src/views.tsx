@@ -46,6 +46,37 @@ function useDebounce<T>(value: T, ms: number): T {
   return dv
 }
 
+// Promise-based reason prompt: an in-app modal replacement for window.prompt()
+// (which is unstyled and blocks browser automation / E2E tests). Usage:
+//   const { ask, node } = useReasonPrompt()
+//   const reason = await ask("Void reason")   // string, or null if cancelled
+//   ... ; return <>{...}{node}</>
+function useReasonPrompt() {
+  const [req, setReq] = useState<{ title: string; resolve: (v: string | null) => void } | null>(null)
+  const [val, setVal] = useState("")
+  const ask = useCallback((title: string) =>
+    new Promise<string | null>(resolve => { setVal(""); setReq({ title, resolve }) }), [])
+  const close = (v: string | null) => { req?.resolve(v); setReq(null) }
+  const node = req ? createPortal(
+    <div className="modal-overlay" onClick={() => close(null)}>
+      <div className="modal-card" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-head"><h3>{req.title}</h3>
+          <button className="modal-close" onClick={() => close(null)}>×</button></div>
+        <div style={{ padding: "1rem 1.35rem" }}>
+          <textarea autoFocus value={val} onChange={e => setVal(e.target.value)} rows={3}
+            style={{ width: "100%", resize: "vertical" }}
+            onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && val.trim()) close(val.trim()) }} />
+          <div style={{ marginTop: ".75rem", display: "flex", gap: ".5rem", justifyContent: "flex-end" }}>
+            <button onClick={() => close(null)}>Cancel</button>
+            <button className="action-btn action-btn--danger" disabled={!val.trim()}
+              onClick={() => close(val.trim())}>Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>, document.body) : null
+  return { ask, node }
+}
+
 // Drop-zone wrapper around a native file input. Drag-and-drop or click to browse.
 // On drop it assigns the files to the hidden input and fires a native change event,
 // so every existing onChange handler (and any external ref) keeps working unchanged.
@@ -1650,6 +1681,7 @@ function OrderSidebar({ order }: { order: SalesOrderDetail }) {
 export function SalesOrderDetail({ company, id }: { company: string; id: string }) {
   const [rev, setRev] = useState(0)
   const [cancelMsg, setCancelMsg] = useState<string | null>(null)
+  const { ask, node: reasonModal } = useReasonPrompt()
   const { data: o, loading, error } = useData<SalesOrderDetail>(
     () => api.sales.getOrder(company, id), [company, id, rev]
   )
@@ -1664,6 +1696,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
 
   return (
     <DetailShell loading={loading} error={error}>
+      {reasonModal}
       {o && <>
         <a href={`#/${company}/sales-orders`} className="back-link">← Sales Orders</a>
         <div className="so-detail-layout">
@@ -1809,13 +1842,13 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
                     <td>{dn.despatch_status}</td>
                     <td>{!dn.invoiced && dn.despatch_status !== "voided" && (
                       <button onClick={async () => {
-                        const reason = window.prompt("Void reason:")
-                        if (!reason?.trim()) return
+                        const reason = await ask("Void reason")
+                        if (!reason) return
                         try {
-                          await api.despatchChecks.voidDn(company, dn.doc_no, reason.trim())
+                          await api.despatchChecks.voidDn(company, dn.doc_no, reason)
                           setRev(r => r + 1)
                         } catch (e: unknown) {
-                          alert(e instanceof Error ? e.message : "Void failed")
+                          setCancelMsg(e instanceof Error ? e.message : "Void failed")
                         }
                       }}>Void DN</button>
                     )}</td>
@@ -5117,6 +5150,7 @@ export function DeliveryNoteList({ company }: { company: string }) {
 
 export function DeliveryNoteDetail({ company, id }: { company: string; id: string }) {
   const [rev, setRev] = useState(0)
+  const { ask, node: reasonModal } = useReasonPrompt()
   const { data: d, loading, error } = useData(() => api.dispatch.getNote(company, id), [company, id, rev])
   const [recv, setRecv] = useState("")
   const [notes, setNotes] = useState("")
@@ -5226,6 +5260,7 @@ export function DeliveryNoteDetail({ company, id }: { company: string; id: strin
 
   return (
     <Shell loading={loading} error={error}>
+      {reasonModal}
       <a className="back-link" href={`#/${company}/delivery-notes`}>← Delivery Notes</a>
       {d && (
         <div className="grn-shell">
@@ -5245,9 +5280,9 @@ export function DeliveryNoteDetail({ company, id }: { company: string; id: strin
             <button className="action-btn" onClick={openCertPack}>Cert pack PDF</button>
             {!hasPod && d.despatch_status !== "voided" && (
               <button className="action-btn action-btn--danger" onClick={async () => {
-                const reason = window.prompt("Void reason:")
-                if (!reason?.trim()) return
-                try { await api.despatchChecks.voidDn(company, d.doc_no, reason.trim()); setRev(rv => rv + 1) }
+                const reason = await ask("Void reason")
+                if (!reason) return
+                try { await api.despatchChecks.voidDn(company, d.doc_no, reason); setRev(rv => rv + 1) }
                 catch (e) { setConfirmMsg(String(e)) }
               }}>Void</button>
             )}
