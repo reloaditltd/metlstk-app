@@ -492,6 +492,7 @@ export type StockBatchDetail = StockBatch & {
   manufacturer_account: string | null
   manufacturer_name: string | null
   country_of_origin: string | null
+  notes: string | null
   mtcs: { id: number; cert_reference: string | null; heat_number: string | null; grade_code: string | null; verified_at: string | null }[]
   genealogy: { parents: BatchGenealogyLink[]; children: BatchGenealogyLink[] }
 }
@@ -1157,6 +1158,8 @@ export const api = {
         `${v1(co)}/stock-batches/${encodeURIComponent(batchNo)}/adjust`, { new_qty, notes, ref_doc_no }),
     setStatus: (co: string, batchNo: string, status: "available" | "quarantine" | "on_hold", reason?: string) =>
       post<{ batch_no: string; status: string }>(`${v1(co)}/stock-batches/${encodeURIComponent(batchNo)}/status`, { status, reason }),
+    updateNotes: (co: string, batchNo: string, notes: string) =>
+      patch<{ batch_no: string; notes: string | null }>(`${v1(co)}/stock-batches/${encodeURIComponent(batchNo)}/notes`, { notes }),
     summary: (co: string) => get<StockSummaryRow[]>(`${v1(co)}/stock-summary`),
     remnantRecommendations: (co: string, stock_account_code: string, cut_length_mm: number, saw_type_id?: number, heat_no?: string) =>
       get<{ min_length_mm: number; kerf_mm: number; facing_allowance_mm: number; recommendations: { batch_no: string; heat_no: string; grade: string | null; length_mm: number; weight_theoretical_kg: number | null; warehouse: string | null; waste_pct: number; age_days: number; tail_offcut_mm: number; same_heat: boolean }[] }>(

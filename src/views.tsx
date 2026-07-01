@@ -4224,11 +4224,27 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
   const [batchStatus, setBatchStatus] = useState<"available" | "quarantine" | "on_hold">("available")
   const [msg, setMsg] = useState<string | null>(null)
   const [splitForm, setSplitForm] = useState<{ qty: string; len: string; saving: boolean; err: string | null } | null>(null)
+  const [notesText, setNotesText] = useState("")
+  const [notesSaving, setNotesSaving] = useState(false)
 
   useEffect(() => {
     if (b?.status && ["available", "quarantine", "on_hold"].includes(b.status))
       setBatchStatus(b.status as "available" | "quarantine" | "on_hold")
   }, [b?.status])
+
+  useEffect(() => { setNotesText(b?.notes ?? "") }, [b?.notes])
+
+  async function saveNotes() {
+    setNotesSaving(true)
+    try {
+      await api.batches.updateNotes(company, id, notesText)
+      setMsg("Notes saved")
+    } catch (e) {
+      setMsg(String(e))
+    } finally {
+      setNotesSaving(false)
+    }
+  }
 
   async function transfer() {
     if (!wh.trim()) return
@@ -4334,6 +4350,23 @@ export function StockBatchDetail({ company, id }: { company: string; id: string 
                 </>}
                 {b.country_of_origin && <><dt>Country</dt><dd>{b.country_of_origin}</dd></>}
               </dl>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div className="grn-section batch-action-section">
+            <h3>Notes</h3>
+            <textarea
+              value={notesText}
+              onChange={e => setNotesText(e.target.value)}
+              placeholder="Anything worth recording against this batch — handling instructions, customer requirements, etc."
+              rows={8}
+              style={{ width: "100%", maxWidth: "40em", resize: "vertical" }}
+            />
+            <div className="batch-action-row">
+              <button className="action-btn" onClick={saveNotes} disabled={notesSaving || notesText === (b.notes ?? "")}>
+                {notesSaving ? "Saving…" : "Save notes"}
+              </button>
             </div>
           </div>
 
