@@ -18,12 +18,28 @@ async function get<T>(path: string): Promise<T> {
   })
 }
 
+// FastAPI errors: `detail` is a string (HTTPException) or an array of
+// {loc, msg, type} (422 validation). Flatten both to a readable message so the
+// UI never renders "[object Object]".
+function apiErrorMessage(detail: unknown, status: number, statusText: string): string {
+  const d = (detail as { detail?: unknown } | null)?.detail
+  if (typeof d === "string") return d
+  if (Array.isArray(d)) {
+    const msgs = d.map((e: { loc?: unknown[]; msg?: string }) => {
+      const field = (e.loc ?? []).filter(p => p !== "body").join(".")
+      return field ? `${field}: ${e.msg}` : e.msg
+    }).filter(Boolean)
+    if (msgs.length) return msgs.join("; ")
+  }
+  return `${status} ${statusText}`
+}
+
 async function send<T>(method: string, path: string, body: unknown): Promise<T> {
   const headers = { ...await authHeader(), "Content-Type": "application/json" }
   return fetch(`${BASE}${path}`, { method, headers, body: JSON.stringify(body) }).then(async r => {
     if (!r.ok) {
       const detail = await r.json().catch(() => null)
-      throw new Error(detail?.detail ?? `${r.status} ${r.statusText}`)
+      throw new Error(apiErrorMessage(detail, r.status, r.statusText))
     }
     return r.json() as Promise<T>
   })

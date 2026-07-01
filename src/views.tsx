@@ -2272,7 +2272,7 @@ export function CustomerNew({ company }: { company: string }) {
     setBusy(true); setMsg(null)
     try {
       const body: Record<string, unknown> = { ...form, account_code: form.account_code.trim().toUpperCase() }
-      if (form.payment_due_days) body.payment_due_days = Number(form.payment_due_days)
+      body.payment_due_days = form.payment_due_days ? Number(form.payment_due_days) : null
       const r = await api.customers.create(company, body)
       location.hash = `#/${company}/customers/${encodeURIComponent(r.account_code)}`
     } catch (e) { setMsg(String(e)); setBusy(false) }
