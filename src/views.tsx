@@ -30,6 +30,7 @@ import {
   type StockAdjustment,
   type ScrapHolding, type ScrapDisposal,
   type SubcontractOrder,
+  type OrderDocument,
   portalApi, portalLogin,
   type PortalMe, type PortalOrder, type PortalAccount, type PortalInvoice,
   type Notification, type NotifPref,
@@ -1678,6 +1679,61 @@ function OrderSidebar({ order }: { order: SalesOrderDetail }) {
   )
 }
 
+function OrderDocuments({ company, orderNo }: { company: string; orderNo: string }) {
+  const [rev, setRev] = useState(0)
+  const { data: docs, loading } = useData(() => api.orderDocuments.list(company, orderNo), [company, orderNo, rev])
+  const [label, setLabel] = useState("")
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function upload() {
+    if (!file) { setMsg("Choose a file first"); return }
+    setBusy(true); setMsg(null)
+    try {
+      await api.orderDocuments.upload(company, orderNo, file, label.trim() || file.name)
+      setLabel(""); setFile(null); if (fileRef.current) fileRef.current.value = ""
+      setRev(r => r + 1)
+    } catch (e) { setMsg(String(e)) } finally { setBusy(false) }
+  }
+  async function remove(docId: number) {
+    if (!window.confirm("Remove this document?")) return
+    try { await api.orderDocuments.remove(company, orderNo, docId); setRev(r => r + 1) }
+    catch (e) { setMsg(String(e)) }
+  }
+
+  const kindLabel = (k: OrderDocument["kind"]) =>
+    k === "confirmation" ? "Confirmation" : k === "customer_po" ? "Customer PO" : "Upload"
+
+  return (
+    <div className="detail-lines" style={{ marginTop: "1.5rem" }}>
+      <h3>Documents</h3>
+      {loading ? <p style={{ color: "var(--text-muted)" }}>Loading…</p> : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          {(docs ?? []).length === 0 && <li style={{ color: "var(--text-muted)", padding: ".4rem 0" }}>No documents yet.</li>}
+          {(docs ?? []).map((d, i) => (
+            <li key={d.id ?? `auto-${i}`} style={{ display: "flex", alignItems: "center", gap: ".6rem", padding: ".4rem 0", borderBottom: "1px solid var(--border)" }}>
+              <span className="badge">{kindLabel(d.kind)}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}</span>
+              {d.url && <a className="action-btn" href={d.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>View</a>}
+              {d.kind === "upload" && d.id != null && (
+                <button onClick={() => remove(d.id!)} title="Remove document" aria-label="Remove document">✕</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div style={{ marginTop: ".8rem", display: "flex", flexWrap: "wrap", gap: ".5rem", alignItems: "center" }}>
+        <input ref={fileRef} type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+        <input placeholder="Label (optional)" value={label} onChange={e => setLabel(e.target.value)} style={{ flex: "1 1 160px" }} />
+        <button className="action-btn" onClick={upload} disabled={busy || !file}>{busy ? "Uploading…" : "Upload"}</button>
+      </div>
+      {msg && <p style={{ color: "var(--danger, #c0392b)", marginTop: ".5rem" }}>{msg}</p>}
+    </div>
+  )
+}
+
 export function SalesOrderDetail({ company, id }: { company: string; id: string }) {
   const [rev, setRev] = useState(0)
   const [cancelMsg, setCancelMsg] = useState<string | null>(null)
@@ -1892,6 +1948,7 @@ export function SalesOrderDetail({ company, id }: { company: string; id: string 
             </table>
           </div>
         )}
+        <OrderDocuments company={company} orderNo={o.order_no} />
         <ContractReviewPanel company={company} orderNo={o.order_no} onChanged={() => setRev(r => r + 1)} />
         <AllocationSection company={company} order={o} />
         <DespatchReadiness company={company} orderNo={o.order_no} />

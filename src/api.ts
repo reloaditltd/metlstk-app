@@ -1553,6 +1553,18 @@ export const api = {
     return: (co: string, id: number, body: { passed: boolean; notes?: string }) =>
       post<SubcontractOrder>(`${v1(co)}/subcontracts/${id}/return`, body),
   },
+  orderDocuments: {
+    list: (co: string, orderNo: string) =>
+      get<OrderDocument[]>(`${v1(co)}/sales-orders/${encodeURIComponent(orderNo)}/documents`),
+    upload: (co: string, orderNo: string, file: File, label: string) => {
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("label", label)
+      return postForm<OrderDocument>(`${v1(co)}/sales-orders/${encodeURIComponent(orderNo)}/documents`, fd)
+    },
+    remove: (co: string, orderNo: string, docId: number) =>
+      del<void>(`${v1(co)}/sales-orders/${encodeURIComponent(orderNo)}/documents/${docId}`),
+  },
   scheduling: {
     machines: (co: string) =>
       get<MachineRow[]>(`${v1(co)}/scheduling/machines`),
@@ -1673,6 +1685,16 @@ export type SubcontractOrder = {
   cost_agreed: number | null; cost_invoiced: number | null
   status: string; notes: string | null; created_by: string | null; created_at: string
   supplier_name?: string | null
+}
+
+export type OrderDocument = {
+  id: number | null
+  kind: "confirmation" | "customer_po" | "upload"
+  label: string
+  content_type: string | null
+  uploaded_by?: string | null
+  uploaded_at?: string | null
+  url: string | null
 }
 
 export type ScrapHolding = { scrap_type: string; total_kg: number }
